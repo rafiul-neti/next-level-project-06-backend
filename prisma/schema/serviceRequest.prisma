@@ -1,0 +1,49 @@
+model ServiceRequest {
+  id String @id @default(uuid())
+
+  customerId String
+  customer   User   @relation("CustomerRequests", fields: [customerId], references: [id])
+
+  categoryId String
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+
+  technicianId String?
+  technician   User?   @relation("TechnicianRequests", fields: [technicianId], references: [id])
+
+  assignedById String?
+  assignedBy   User?   @relation("AssignedByAdmin", fields: [assignedById], references: [id])
+
+  availabilityId String?                 @unique
+  availability   TechnicianAvailability? @relation(fields: [availabilityId], references: [id])
+
+  title          String
+  description    String
+  address        String
+  attachmentUrls String[] @default([]) // Cloudinary URLs, issue photos
+
+  status ServiceRequestStatus @default(PENDING)
+
+  startedAt           DateTime?
+  completedAt         DateTime?
+  completionNotes     String?
+  completionPhotoUrls String[]  @default([])
+
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime? // soft delete
+
+  feedback  Feedback?
+  auditLogs AuditLog[] @relation("AuditServiceRequest")
+  payment   Payment?
+
+  @@index([status])
+  @@index([customerId])
+  @@index([technicianId])
+  @@index([categoryId])
+  @@map("service_requests")
+}

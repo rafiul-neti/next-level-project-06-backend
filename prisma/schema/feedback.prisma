@@ -1,0 +1,16 @@
+model Feedback {
+  id               String         @id @default(uuid())
+  serviceRequestId String         @unique
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+
+  customerId String
+  customer   User   @relation(fields: [customerId], references: [id])
+
+  rating  Int // 1-5, enforce range at Zod level
+  comment String?
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@map("feedbacks")
+}

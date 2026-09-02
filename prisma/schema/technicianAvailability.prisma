@@ -1,0 +1,23 @@
+model TechnicianAvailability {
+  id                  String            @id @default(uuid())
+  technicianProfileId String
+  technicianProfile   TechnicianProfile @relation(fields: [technicianProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  date   DateTime           @db.Date // just the calendar date, no time component
+  period DayPeriod
+  status AvailabilityStatus @default(OPEN)
+
+  serviceRequest ServiceRequest? // the request this window is booked for, if BOOKED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The core anti-double-booking guarantee: one technician cannot have
+  // two rows for the same date + period. Combined with a DB transaction
+  // on the OPEN -> BOOKED transition, this makes double-booking impossible
+  // at the schema level, not just in application code.
+  @@unique([technicianProfileId, date, period])
+  @@index([technicianProfileId, status])
+  @@index([date, status])
+  @@map("technician_availability")
+}

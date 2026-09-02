@@ -1,0 +1,22 @@
+model TechnicianProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bio               String?
+  yearsOfExperience Int?
+  serviceArea       String? // e.g. district/zone name, kept simple for this scope
+
+  applicationStatus TechnicianApplicationStatus @default(PENDING)
+
+  skills       TechnicianSkill[]
+  availability TechnicianAvailability[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  @@map("technician_profiles")
+}

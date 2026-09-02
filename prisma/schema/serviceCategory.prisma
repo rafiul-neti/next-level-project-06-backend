@@ -1,0 +1,17 @@
+model ServiceCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g. Plumbing, Electrical, HVAC
+  description String?
+  isActive    Boolean @default(true)
+
+  serviceRequests  ServiceRequest[]
+  technicianSkills TechnicianSkill[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
+  @@map("service_categories")
+}

@@ -1,18 +1,57 @@
 enum Role {
-  SUPER_ADMIN
+  CUSTOMER
+  TECHNICIAN
   ADMIN
-  DOCTOR
-  PATIENT
 }
 
-enum UserStatus {
-  ACTIVE
-  BLOCKED
-  DELETED
+enum TechnicianApplicationStatus {
+  PENDING // applied, awaiting admin review
+  APPROVED
+  REJECTED
 }
 
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
+enum DayPeriod {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+enum AvailabilityStatus {
+  OPEN
+  BOOKED
+  BLOCKED // technician manually blocks it (leave, personal time)
+}
+
+// Overall lifecycle of a single service request, end to end.
+enum ServiceRequestStatus {
+  PENDING // customer submitted, awaiting admin review
+  REVIEWED // admin reviewed, ready to assign
+  ASSIGNED // technician + availability window attached
+  IN_PROGRESS // technician marked work started
+  COMPLETED // technician marked work done
+  INVOICED // invoice generated, awaiting payment
+  PAID // payment confirmed
+  CLOSED // customer left feedback, ticket fully closed
+  CANCELLED // cancelled by customer or admin at any stage before COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  STRIPE
+  SSLCOMMERZ
+  BKASH
+}
+
+enum AuditAction {
+  STATUS_CHANGE
+  ROLE_CHANGE
+  ASSIGNMENT
+  PAYMENT_UPDATE
+  ACCOUNT_ACTION
 }

@@ -1,0 +1,10 @@
+model TechnicianSkill {
+  id                  String            @id @default(uuid())
+  technicianProfileId String
+  technicianProfile   TechnicianProfile @relation(fields: [technicianProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  categoryId          String
+  category            ServiceCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([technicianProfileId, categoryId])
+  @@map("technician_skills")
+}
