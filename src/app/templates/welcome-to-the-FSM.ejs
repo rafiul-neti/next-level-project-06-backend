@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to <%= appName %></title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f5; font-family:Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5; padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden; border:1px solid #e4e4e7;">
+
+          <tr>
+            <td style="background-color:#0f6e56; padding:24px 32px;">
+              <h1 style="margin:0; font-size:18px; color:#ffffff; font-weight:600;">
+                <%= appName %>
+              </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 8px; font-size:15px; color:#18181b;">
+                Hi <%= name %>,
+              </p>
+              <p style="margin:0 0 20px; font-size:15px; color:#3f3f46; line-height:1.6;">
+                Welcome aboard — your email is verified and your account is ready to go.
+              </p>
+
+              <% if (role === 'TECHNICIAN') { %>
+                <p style="margin:0 0 20px; font-size:15px; color:#3f3f46; line-height:1.6;">
+                  Your technician application is now under review. Once approved, you'll be able to publish your availability and start receiving job assignments.
+                </p>
+              <% } else { %>
+                <p style="margin:0 0 20px; font-size:15px; color:#3f3f46; line-height:1.6;">
+                  You can now submit a service request any time you need a technician — just pick a category, describe the issue, and we'll take it from there.
+                </p>
+              <% } %>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding:4px;">
+                    <a href="<%= ctaUrl %>" style="display:inline-block; padding:12px 28px; background-color:#0f6e56; color:#ffffff; text-decoration:none; font-size:14px; font-weight:600; border-radius:6px;">
+                      <%= ctaLabel %>
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:24px 0 0; font-size:13px; color:#71717a; line-height:1.6;">
+                If you didn't create this account, please contact our support team right away.
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:20px 32px; background-color:#fafafa; border-top:1px solid #e4e4e7;">
+              <p style="margin:0; font-size:12px; color:#a1a1aa;">
+                &copy; <%= currentYear %> <%= appName %>. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

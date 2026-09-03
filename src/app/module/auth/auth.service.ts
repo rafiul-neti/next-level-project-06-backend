@@ -1,192 +1,308 @@
-import bcrypt from 'bcryptjs'
-import { JwtPayload, SignOptions } from 'jsonwebtoken'
-import { Role, UserStatus } from '../../../generated/prisma/enums'
-import config from '../../config'
-import { prisma } from '../../lib/prisma'
-import { jwtUtils } from '../../utils/jwt'
+import path from "node:path";
+import bcrypt from "bcryptjs";
+import ejs from "ejs";
+import httpStatus from "http-status";
+import type { JwtPayload, SignOptions } from "jsonwebtoken";
+import config from "../../config";
+import { transporter } from "../../lib/nodemailer";
+import { prisma } from "../../lib/prisma";
+import { AppError } from "../../utils/AppError";
+import { jwtUtils } from "../../utils/jwt";
 import {
-    ILoginUserPayload,
-    IRegisterPatientPayload,
-    IRequestUser
-} from './auth.interface'
+  Actions,
+  RedisKeyPrefix,
+  redisActions,
+} from "../../utils/redisActions";
+import type {
+  ILoginUserPayload,
+  IRegisterUserPayload,
+  IRequestUser,
+  IVerifyEmailPayload,
+} from "./auth.interface";
 
+const registerUser = async (payload: IRegisterUserPayload) => {
+  const { name, password } = payload;
+  const email = payload.email.trim().toLowerCase();
 
-const registerPatient = async (payload: IRegisterPatientPayload) => {
-    const { name, password } = payload
-    const email = payload.email.trim().toLowerCase()
+  const isUserExists = await prisma.user.findUnique({
+    where: { email },
+  });
 
-    const isUserExists = await prisma.user.findUnique({
-        where: { email },
-    })
+  if (isUserExists) {
+    throw new Error("User with this email already exists");
+  }
 
-    if (isUserExists) {
-        throw new Error('User with this email already exists')
-    }
+  const hashedPassword = await bcrypt.hash(
+    password,
+    Number(config.bcrypt_salt_rounds),
+  );
 
-    const hashedPassword = await bcrypt.hash(password, 8)
+  const expirationSeconds = 60 * 5;
 
-    const createdUser = await prisma.user.create({
-        data: {
-            name,
-            email,
-            password: hashedPassword,
-            role: Role.PATIENT,
-            status: UserStatus.ACTIVE,
-            emailVerified: false,
-            patient: {
-                create: { name, email },
-            },
-        },
-        omit: { password: true },
-        include: { patient: true },
-    })
+  const OTP = await redisActions({
+    keyPrefix: RedisKeyPrefix.USER_REGISTER_OTP,
+    keySuffix: email,
+    action: Actions.SET_OTP,
+    expirationSeconds,
+  });
 
-    const { patient, ...user } = createdUser
-    const jwtPayload = {
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-    }
+  const registrationPayload = {
+    name,
+    email,
+    password: hashedPassword,
+    role: payload.role,
+  };
 
-    const accessToken = jwtUtils.createToken(
-        jwtPayload,
-        config.jwt_access_secret,
-        config.jwt_access_expires_in as SignOptions
+  await redisActions({
+    keyPrefix: RedisKeyPrefix.USER_REGISTRATION_DATA,
+    keySuffix: email,
+    action: Actions.SET_REGISTRATION_PAYLOAD,
+    registrationPayload,
+    expirationSeconds,
+  });
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/user-registration-OTP.ejs",
+  );
+
+  const html = await ejs.renderFile(templatePath, {
+    appName: "Field Service Management",
+    name: payload.name,
+    otp: OTP,
+    expiresInMinutes: expirationSeconds / 60,
+    currentYear: new Date().getFullYear(),
+  });
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: payload.email,
+    subject: "Verify your email",
+    html,
+  });
+};
+
+const verifyEmail = async (payload: IVerifyEmailPayload) => {
+  const email = payload.email.trim().toLowerCase();
+
+  const OTP = await redisActions({
+    keyPrefix: RedisKeyPrefix.USER_REGISTER_OTP,
+    keySuffix: email,
+    action: Actions.GET_OTP,
+  });
+
+  if (OTP !== payload.otp) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "OTP does not match! Please provide a valid OTP.",
     );
+  }
 
-    const refreshToken = jwtUtils.createToken(
-        jwtPayload,
-        config.jwt_refresh_secret,
-        config.jwt_refresh_expires_in as SignOptions
+  await redisActions({
+    keyPrefix: RedisKeyPrefix.USER_REGISTER_OTP,
+    keySuffix: email,
+    action: Actions.DEL_OTP,
+  });
+
+  const getUserDataFromRedis = await redisActions({
+    keyPrefix: RedisKeyPrefix.USER_REGISTRATION_DATA,
+    keySuffix: email,
+    action: Actions.GET_OTP,
+  });
+
+  if (!getUserDataFromRedis) {
+    throw new AppError(
+      httpStatus.GONE,
+      "OTP has expired. Please try again after some times.",
     );
+  }
 
-    return {
-        user,
-        patient,
-        accessToken,
-        refreshToken
-    }
-}
+  const userData: IRegisterUserPayload = JSON.parse(
+    getUserDataFromRedis as string,
+  );
+
+  const createdUser = await prisma.user.create({
+    data: {
+      ...userData,
+      isEmailVerified: true,
+    },
+    omit: { password: true },
+  });
+
+  await redisActions({
+    keyPrefix: RedisKeyPrefix.USER_REGISTRATION_DATA,
+    keySuffix: email,
+    action: Actions.DEL_OTP,
+  });
+
+  const jwtPayload = {
+    userId: createdUser.id,
+    name: createdUser.name,
+    email: createdUser.email,
+    role: createdUser.role,
+  };
+
+  const accessToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_access_secret,
+    config.jwt_access_expires_in as SignOptions,
+  );
+
+  const refreshToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_refresh_secret,
+    config.jwt_refresh_expires_in as SignOptions,
+  );
+
+  const html = await ejs.renderFile(
+    path.join(process.cwd(), "src/app/templates/welcome-to-the-FSM.ejs"),
+    {
+      appName: "Field Service Management",
+      name: createdUser.name,
+      role: createdUser.role, // 'CUSTOMER' | 'TECHNICIAN'
+      ctaUrl:
+        createdUser.role === "TECHNICIAN"
+          ? `${config.frontend_url}/technician/dashboard`
+          : `${config.frontend_url}/service-requests/new`,
+      ctaLabel:
+        createdUser.role === "TECHNICIAN"
+          ? "Go to dashboard"
+          : "Create a service request",
+      currentYear: new Date().getFullYear(),
+    },
+  );
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: payload.email,
+    subject: "Welcome to Field Service Management System",
+    html,
+  });
+
+  return {
+    createdUser,
+    accessToken,
+    refreshToken,
+  };
+};
 
 const loginUser = async (payload: ILoginUserPayload) => {
-    const { password } = payload
-    const email = payload.email.trim().toLowerCase()
+  const { password } = payload;
+  const email = payload.email.trim().toLowerCase();
 
-    const user = await prisma.user.findUnique({
-        where: { email },
-    })
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
 
-    if (!user) {
-        throw new Error('User not found')
-    }
+  if (!user) {
+    throw new Error("User not found");
+  }
 
-    if (user.status === UserStatus.BLOCKED) {
-        throw new Error('User is blocked')
-    }
+  if (user.isDeleted) {
+    throw new Error("User is deleted");
+  }
 
-    if (user.isDeleted || user.status === UserStatus.DELETED) {
-        throw new Error('User is deleted')
-    }
+  const isPasswordMatched = await bcrypt.compare(password, user.password);
 
-    const isPasswordMatched = await bcrypt.compare(password, user.password)
+  if (!isPasswordMatched) {
+    throw new Error("Invalid credentials");
+  }
 
-    if (!isPasswordMatched) {
-        throw new Error('Invalid credentials')
-    }
+  const jwtPayload = {
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  };
 
-    const jwtPayload = {
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-    }
+  const accessToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_access_secret,
+    config.jwt_access_expires_in as SignOptions,
+  );
 
-    const accessToken = jwtUtils.createToken(
-        jwtPayload,
-        config.jwt_access_secret,
-        config.jwt_access_expires_in as SignOptions
-    );
+  const refreshToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_refresh_secret,
+    config.jwt_refresh_expires_in as SignOptions,
+  );
 
-    const refreshToken = jwtUtils.createToken(
-        jwtPayload,
-        config.jwt_refresh_secret,
-        config.jwt_refresh_expires_in as SignOptions
-    );
-
-    return {
-        accessToken,
-        refreshToken
-    }
-}
+  return {
+    accessToken,
+    refreshToken,
+  };
+};
 
 const getMe = async (user: IRequestUser) => {
-    const isUserExists = await prisma.user.findUnique({
-        where: {
-            id: user.userId,
-        },
-        include: {
-            patient: true,
-        },
-        omit: {
-            password: true,
-        },
-    })
+  const isUserExists = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+    },
+    omit: {
+      password: true,
+    },
+  });
 
-    if (!isUserExists) {
-        throw new Error('User not found')
-    }
+  if (!isUserExists) {
+    throw new Error("User not found");
+  }
 
-    return isUserExists
-}
+  return isUserExists;
+};
 
 const refreshToken = async (token: string) => {
-    const verifiedRefreshToken = jwtUtils.verifyToken(token, config.jwt_refresh_secret)
+  const verifiedRefreshToken = jwtUtils.verifyToken(
+    token,
+    config.jwt_refresh_secret,
+  );
 
-    if (!verifiedRefreshToken.success || !verifiedRefreshToken.data) {
-        throw new Error(config.node_env === 'development' ? verifiedRefreshToken.error : 'Invalid refresh token')
-    }
-
-    const data = verifiedRefreshToken.data as JwtPayload
-
-    const user = await prisma.user.findUnique({
-        where: { id: data.userId },
-    })
-
-    if (!user || user.isDeleted || user.status !== UserStatus.ACTIVE) {
-        throw new Error('User is inactive or not found')
-    }
-
-    const jwtPayload = {
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-    }
-
-    const accessToken = jwtUtils.createToken(
-        jwtPayload,
-        config.jwt_access_secret,
-        config.jwt_access_expires_in as SignOptions
+  if (!verifiedRefreshToken.success || !verifiedRefreshToken.data) {
+    throw new Error(
+      config.node_env === "development"
+        ? verifiedRefreshToken.error
+        : "Invalid refresh token",
     );
+  }
 
-    const refreshToken = jwtUtils.createToken(
-        jwtPayload,
-        config.jwt_refresh_secret,
-        config.jwt_refresh_expires_in as SignOptions
-    );
+  const data = verifiedRefreshToken.data as JwtPayload;
 
-    return {
-        accessToken,
-        refreshToken
-    }
-}
+  const user = await prisma.user.findUnique({
+    where: { id: data.userId },
+  });
 
+  if (!user || user.isDeleted) {
+    throw new Error("User is inactive or not found");
+  }
 
+  const jwtPayload = {
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_access_secret,
+    config.jwt_access_expires_in as SignOptions,
+  );
+
+  const refreshToken = jwtUtils.createToken(
+    jwtPayload,
+    config.jwt_refresh_secret,
+    config.jwt_refresh_expires_in as SignOptions,
+  );
+
+  return {
+    accessToken,
+    refreshToken,
+  };
+};
 
 export const AuthService = {
-    registerPatient,
-    loginUser,
-    getMe,
-    refreshToken
-}
+  registerUser,
+  verifyEmail,
+  loginUser,
+  getMe,
+  refreshToken,
+};
