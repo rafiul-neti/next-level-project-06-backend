@@ -6,7 +6,8 @@ import { AuthService } from "./auth.service";
 
 const registerUser = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
-  await AuthService.registerUser(payload);
+
+  await AuthService.registerUser(payload, req.file?.buffer);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -154,5 +155,6 @@ export const AuthController = {
   loginUser,
   googleLogin,
   refreshToken,
-  forgotPassword, resetPassword
+  forgotPassword,
+  resetPassword,
 };

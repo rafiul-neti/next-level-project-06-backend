@@ -6,7 +6,12 @@ import { catchAsync } from "../utils/catchAsync";
 
 export const validateRequest = (schema: z.ZodObject) => {
   return catchAsync((req: Request, res: Response, next: NextFunction) => {
-    const payload = req.body ?? {};
+    let payload = req.body ?? {};
+
+    // Before passing req.body into your Zod schema:
+    if (payload.data && typeof payload.data === "string") {
+      payload = JSON.parse(req.body.data);
+    }
 
     const result = schema.safeParse(payload);
 

@@ -1,11 +1,13 @@
 import path from "node:path";
 import bcrypt from "bcryptjs";
+import type { UploadApiResponse } from "cloudinary";
 import ejs from "ejs";
 import type { TokenPayload } from "google-auth-library";
 import httpStatus from "http-status";
 import type { JwtPayload, SignOptions } from "jsonwebtoken";
 import { AuthProvider, Role } from "../../../generated/prisma/enums";
 import config from "../../config";
+import { cloudinary } from "../../lib/cloudinary";
 import { googleClient } from "../../lib/googleAuth";
 import { transporter } from "../../lib/nodemailer";
 import { prisma } from "../../lib/prisma";
@@ -28,7 +30,10 @@ import type {
   TResetPasswordPayload,
 } from "./validation/typesFromValidationSchemas";
 
-const registerUser = async (payload: IRegisterUserPayload) => {
+const registerUser = async (
+  payload: IRegisterUserPayload,
+  profileImageBuffer?: Buffer,
+) => {
   const { name, password } = payload;
   const email = payload.email.trim().toLowerCase();
 
@@ -45,6 +50,29 @@ const registerUser = async (payload: IRegisterUserPayload) => {
     Number(config.bcrypt_salt_rounds),
   );
 
+  const uploadProfileImageAndGetLink = await new Promise<UploadApiResponse>(
+    (resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream({ resource_type: "auto" }, async (error, result) => {
+          if (error) {
+            return reject(error);
+          }
+
+          if (!result) {
+            return reject(
+              new AppError(
+                httpStatus.INTERNAL_SERVER_ERROR,
+                "No result returned from Cloudinary: at registerUser in auth.service; uploading profile image!",
+              ),
+            );
+          }
+
+          resolve(result);
+        })
+        .end(profileImageBuffer);
+    },
+  );
+
   const expirationSeconds = 60 * 5;
 
   const OTP = await redisActions({
@@ -59,6 +87,8 @@ const registerUser = async (payload: IRegisterUserPayload) => {
     email,
     password: hashedPassword,
     role: payload.role,
+    profileImage: uploadProfileImageAndGetLink?.secure_url,
+    profileImagePublicId: uploadProfileImageAndGetLink?.public_id,
   };
 
   await redisActions({
@@ -120,9 +150,10 @@ const verifyEmail = async (payload: IVerifyEmailPayload) => {
     );
   }
 
-  const userData: IRegisterUserPayload = JSON.parse(
-    getUserDataFromRedis as string,
-  );
+  const userData: IRegisterUserPayload & {
+    profileImage?: string;
+    profileImagePublicId?: string;
+  } = JSON.parse(getUserDataFromRedis as string);
 
   const createdUser = await prisma.user.create({
     data: {

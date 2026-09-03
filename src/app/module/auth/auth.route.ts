@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { upload } from "../../lib/multer";
 import { validateRequest } from "../../middleware/validateRequest";
 import { AuthController } from "./auth.controller";
 import {
@@ -13,6 +14,7 @@ const router = Router();
 
 router.post(
   "/register",
+  upload.single("profileImage"),
   validateRequest(registerUserValidationSchema),
   AuthController.registerUser,
 );
