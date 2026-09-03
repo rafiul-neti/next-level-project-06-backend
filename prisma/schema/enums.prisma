@@ -48,6 +48,11 @@ enum PaymentProvider {
   BKASH
 }
 
+enum AuthProvider {
+  CREDENTIAL
+  GOOGLE
+}
+
 enum AuditAction {
   STATUS_CHANGE
   ROLE_CHANGE

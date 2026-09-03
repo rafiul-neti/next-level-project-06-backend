@@ -19,15 +19,15 @@ model ServiceRequest {
   title          String
   description    String
   address        String
-  attachmentUrls String[] @default([]) // Cloudinary URLs, issue photos
+  attachmentUrls Json? //strores [{url: "....", originalName: "...", publicId: "...."}]
 
   status ServiceRequestStatus @default(PENDING)
 
   startedAt           DateTime?
   completedAt         DateTime?
   completionNotes     String?
-  completionPhotoUrls String[]  @default([])
-
+  completionPhotoUrls Json?  //strores [{url: "....", originalName: "...", publicId: "...."}]
+  
   cancelledAt        DateTime?
   cancellationReason String?
 

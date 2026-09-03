@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import ejs from "ejs";
 import httpStatus from "http-status";
 import type { JwtPayload, SignOptions } from "jsonwebtoken";
+import { AuthProvider } from "../../../generated/prisma/enums";
 import config from "../../config";
 import { transporter } from "../../lib/nodemailer";
 import { prisma } from "../../lib/prisma";
@@ -13,12 +14,17 @@ import {
   RedisKeyPrefix,
   redisActions,
 } from "../../utils/redisActions";
+import { renderOtpEmail } from "../../utils/renderOtpEmail";
 import type {
   ILoginUserPayload,
   IRegisterUserPayload,
   IRequestUser,
   IVerifyEmailPayload,
 } from "./auth.interface";
+import type {
+  TForgotPasswordPayload,
+  TResetPasswordPayload,
+} from "./validation/typesFromValidationSchemas";
 
 const registerUser = async (payload: IRegisterUserPayload) => {
   const { name, password } = payload;
@@ -61,17 +67,12 @@ const registerUser = async (payload: IRegisterUserPayload) => {
     expirationSeconds,
   });
 
-  const templatePath = path.join(
-    process.cwd(),
-    "src/app/templates/user-registration-OTP.ejs",
-  );
-
-  const html = await ejs.renderFile(templatePath, {
+  const html = await renderOtpEmail({
+    purpose: "VERIFY_EMAIL",
     appName: "Field Service Management",
-    name: payload.name,
-    otp: OTP,
+    name,
+    otp: OTP as string,
     expiresInMinutes: expirationSeconds / 60,
-    currentYear: new Date().getFullYear(),
   });
 
   await transporter.sendMail({
@@ -202,7 +203,18 @@ const loginUser = async (payload: ILoginUserPayload) => {
     throw new Error("User is deleted");
   }
 
-  const isPasswordMatched = await bcrypt.compare(password, user.password);
+  if (user.isBlocked) {
+    throw new Error("User is blocked");
+  }
+
+  if (!user.isEmailVerified) {
+    throw new Error("User email is not verified!");
+  }
+
+  const isPasswordMatched = await bcrypt.compare(
+    password,
+    user.password as string,
+  );
 
   if (!isPasswordMatched) {
     throw new Error("Invalid credentials");
@@ -299,10 +311,164 @@ const refreshToken = async (token: string) => {
   };
 };
 
+const forgotPassword = async (payload: TForgotPasswordPayload) => {
+  const { email } = payload;
+
+  const isUserExists = await prisma.user.findUnique({ where: { email } });
+  if (!isUserExists) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "No account found. Check your email address and try again.",
+    );
+  }
+
+  if (isUserExists.isBlocked) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account has been blocked. Please contact support.",
+    );
+  }
+
+  if (isUserExists.isDeleted) {
+    throw new AppError(httpStatus.FORBIDDEN, "Your account is deleted!");
+  }
+
+  if (!isUserExists.isEmailVerified) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Email unverified! Please verify your email first.",
+    );
+  }
+
+  if (
+    isUserExists.authProvider !== AuthProvider.CREDENTIAL ||
+    isUserExists.password === null
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Invalid request: forgot password!",
+    );
+  }
+
+  const expirationSeconds = 5 * 60;
+
+  const setOTPToRedis = await redisActions({
+    keyPrefix: RedisKeyPrefix.FORGOT_PASSWORD_OTP,
+    keySuffix: email,
+    action: Actions.SET_OTP,
+    expirationSeconds,
+  });
+
+  const html = await renderOtpEmail({
+    purpose: "RESET_PASSWORD",
+    appName: "Field Service Management",
+    name: isUserExists.name,
+    otp: setOTPToRedis as string,
+    expiresInMinutes: expirationSeconds / 60,
+  });
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: isUserExists.email,
+    subject: "FSM - Forgot Password OTP",
+    html,
+  });
+};
+
+const resetPassword = async (payload: TResetPasswordPayload) => {
+  const { email, newPassword, otp, otpFor } = payload;
+
+  const isUserExists = await prisma.user.findUnique({ where: { email } });
+  if (!isUserExists) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "No account found. Check your email address and try again.",
+    );
+  }
+
+  if (isUserExists.isBlocked) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Your account has been blocked. Please contact support.",
+    );
+  }
+
+  if (isUserExists.isDeleted) {
+    throw new AppError(httpStatus.FORBIDDEN, "Your account is deleted!");
+  }
+
+  if (!isUserExists.isEmailVerified) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Email unverified! Please verify your email first.",
+    );
+  }
+
+  if (
+    isUserExists.authProvider !== AuthProvider.CREDENTIAL ||
+    isUserExists.password === null
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Invalid request: forgot password!",
+    );
+  }
+
+  const OTP = await redisActions({
+    keyPrefix: otpFor,
+    keySuffix: email,
+    action: Actions.GET_OTP,
+  });
+
+  if (otp !== OTP) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid OTP!");
+  }
+
+  const hashedNewPassword = await bcrypt.hash(
+    newPassword,
+    Number(config.bcrypt_salt_rounds),
+  );
+
+  const updateUser = await prisma.user.update({
+    where: { email: isUserExists.email },
+    data: { password: hashedNewPassword },
+  });
+
+  await redisActions({
+    keyPrefix: otpFor,
+    keySuffix: email,
+    action: Actions.DEL_OTP,
+  });
+
+  const resetPasswordEmailHTML = await ejs.renderFile(
+    path.join(process.cwd(), "src/app/templates/reset-password-success.ejs"),
+    {
+      appName: "Field Service Management",
+      name: updateUser.name,
+      changedAt: new Date().toLocaleString("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+      currentYear: new Date().getFullYear(),
+    },
+  );
+
+  transporter.sendMail({
+    from: config.email_sender,
+    to: isUserExists.email,
+    subject: "PH-Healthcare - Forgot Password OTP",
+    html: resetPasswordEmailHTML,
+  });
+
+  return updateUser;
+};
+
 export const AuthService = {
   registerUser,
   verifyEmail,
   loginUser,
   getMe,
   refreshToken,
+  forgotPassword,
+  resetPassword,
 };

@@ -8,22 +8,7 @@ import { AuthService } from "./auth.service";
 const registerUser = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   await AuthService.registerUser(payload);
-  /*
-  const { accessToken, refreshToken, createdUser } = result;
 
-  res.cookie("accessToken", accessToken, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "none",
-    maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
-  });
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "none",
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-  });
-*/
   sendResponse(res, {
     statusCode: httpStatus.OK,
     message:
@@ -106,6 +91,7 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
   if (!req.cookies.refreshToken) {
     throw new Error("Refresh token is missing");
   }
+
   const result = await AuthService.refreshToken(req.cookies.refreshToken);
   const { accessToken, refreshToken: newRefreshToken } = result;
 
@@ -133,10 +119,31 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthService.forgotPassword(req.body);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: `OTP sent to ${req.body.email}`,
+    data: result,
+  });
+});
+
+const resetPassword = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthService.resetPassword(req.body);
+  
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: "Password reset successful",
+    data: result,
+  });
+});
+
 export const AuthController = {
   registerUser,
   verifyEmail,
   loginUser,
   getMe,
   refreshToken,
+  forgotPassword, resetPassword
 };
