@@ -9,6 +9,7 @@ export default {
   database_url: process.env.DATABASE_URL,
   backend_url: process.env.BACKEND_URL,
   frontend_url: process.env.FRONTEND_URL,
+  google_client_id: process.env.GOOGLE_CLIENT_ID!,
   bcrypt_salt_rounds: process.env.BCRYPT_SALT_ROUNDS!,
   jwt_access_secret: process.env.JWT_ACCESS_SECRET!,
   jwt_refresh_secret: process.env.JWT_REFRESH_SECRET!,
@@ -21,4 +22,7 @@ export default {
   smtp_user: process.env.SMTP_USER!,
   smtp_password: process.env.SMTP_PASSWORD!,
   email_sender: process.env.EMAIL_SENDER!,
+  cloudinary_cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  cloudinary_api_key: process.env.CLOUDNINARY_API_KEY!,
+  cloudinary_api_secret: process.env.CLOUDINARY_API_SECRET!,
 };

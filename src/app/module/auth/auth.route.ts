@@ -1,6 +1,4 @@
 import { Router } from "express";
-import { Role } from "../../../generated/prisma/enums";
-import { auth } from "../../middleware/checkAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { AuthController } from "./auth.controller";
 import {
@@ -31,11 +29,7 @@ router.post(
   AuthController.loginUser,
 );
 
-router.get(
-  "/me",
-  auth(Role.ADMIN, Role.CUSTOMER, Role.TECHNICIAN),
-  AuthController.getMe,
-);
+router.post("/google", AuthController.googleLogin);
 
 router.post("/refresh-token", AuthController.refreshToken);
 

@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import httpStatus from "http-status";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
-import type { IRequestUser } from "./auth.interface";
 import { AuthService } from "./auth.service";
 
 const registerUser = catchAsync(async (req: Request, res: Response) => {
@@ -71,19 +70,29 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getMe = catchAsync(async (req: Request, res: Response) => {
-  const user = req.user as unknown as IRequestUser;
+const googleLogin = catchAsync(async (req: Request, res: Response) => {
+  const { accessToken, refreshToken } = await AuthService.googleLogin(req.body);
 
-  if (!user) {
-    throw new Error("User information is missing in the request");
-  }
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "none",
+    maxAge: 1000 * 60 * 60 * 24, // 24 hour or 1 day
+  });
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: false,
+    sameSite: "none",
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+  });
 
-  const result = await AuthService.getMe(user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
-
-    message: "User profile fetched successfully",
-    data: result,
+    message: "User logged in with google successfully",
+    data: {
+      accessToken,
+      refreshToken,
+    },
   });
 });
 
@@ -131,7 +140,7 @@ const forgotPassword = catchAsync(async (req: Request, res: Response) => {
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
   const result = await AuthService.resetPassword(req.body);
-  
+
   sendResponse(res, {
     statusCode: httpStatus.OK,
     message: "Password reset successful",
@@ -143,7 +152,7 @@ export const AuthController = {
   registerUser,
   verifyEmail,
   loginUser,
-  getMe,
+  googleLogin,
   refreshToken,
   forgotPassword, resetPassword
 };
