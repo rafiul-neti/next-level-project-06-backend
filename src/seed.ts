@@ -8,14 +8,37 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "Admin123!";
 const ADMIN_NAME = process.env.ADMIN_NAME ?? "System Admin";
 const BCRYPT_SALT_ROUNDS = Number(config.bcrypt_salt_rounds);
 
-async function main() {
+const STARTER_CATEGORIES = [
+  {
+    name: "Plumbing",
+    description:
+      "Pipe repairs, leak fixes, fixture installation, and drainage issues.",
+  },
+  {
+    name: "Electrical",
+    description:
+      "Wiring, circuit breakers, outlet and switch repairs, fixture installation.",
+  },
+  {
+    name: "HVAC",
+    description:
+      "Air conditioning and heating installation, servicing, and repair.",
+  },
+  {
+    name: "Appliance Repair",
+    description:
+      "Repair and maintenance of household appliances such as refrigerators and washing machines.",
+  },
+];
+
+async function seedAdmin() {
   const existingAdmin = await prisma.user.findFirst({
     where: { role: Role.ADMIN },
   });
 
   if (existingAdmin) {
     console.log(
-      `Admin already exists (email: ${existingAdmin.email}) — skipping seed.`,
+      `Admin already exists (email: ${existingAdmin.email}) — skipping admin seed.`,
     );
     return;
   }
@@ -35,6 +58,30 @@ async function main() {
   console.log(`Admin seeded successfully: ${admin.email}`);
 }
 
+async function seedServiceCategories() {
+  for (const category of STARTER_CATEGORIES) {
+    const existing = await prisma.serviceCategory.findUnique({
+      where: { name: category.name },
+    });
+
+    if (existing) {
+      console.log(`Category "${category.name}" already exists — skipping.`);
+      continue;
+    }
+
+    const created = await prisma.serviceCategory.create({
+      data: category,
+    });
+
+    console.log(`Category seeded: ${created.name} (${created.id})`);
+  }
+}
+
+async function main() {
+  await seedAdmin();
+  await seedServiceCategories();
+}
+
 main()
   .catch((error) => {
     console.error("Seed failed:", error);
@@ -43,3 +90,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+ 

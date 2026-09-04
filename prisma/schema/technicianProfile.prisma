@@ -4,7 +4,7 @@ model TechnicianProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   bio               String?
-  yearsOfExperience Int?
+  yearsOfExperience Int? @default(0)
   serviceArea       String? // e.g. district/zone name, kept simple for this scope
 
   applicationStatus TechnicianApplicationStatus @default(PENDING)
