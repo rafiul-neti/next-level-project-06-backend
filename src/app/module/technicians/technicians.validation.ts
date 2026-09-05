@@ -51,7 +51,10 @@ export const updateTechnicianApplicationStatusValidationSchema = z.object({
 
 export const getAllTechniciansQuerySchema = z.object({
   ...QuerySchema.shape,
+  status: z.enum(TechnicianApplicationStatus),
 });
 
 // types based on the zod schemas
-export type TGetAllTechniciansQuery = z.infer<typeof getAllTechniciansQuerySchema>;
+export type TGetAllTechniciansQuery = z.infer<
+  typeof getAllTechniciansQuerySchema
+>;

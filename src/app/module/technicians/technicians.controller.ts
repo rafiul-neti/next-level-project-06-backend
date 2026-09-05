@@ -47,8 +47,24 @@ const getAlltechnicians = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// public route's controllers
+const getAllPublicTechnicians = catchAsync(
+  async (req: Request, res: Response) => {
+    const { data, meta } = await TechniciansService.getAllPublicTechnicians(
+      req.validatedQuery,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Public Technicians Retrieved Successfully.",
+      data,
+      meta,
+    });
+  },
+);
+
 export const TechniciansController = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
-  getAlltechnicians,
+  getAlltechnicians, getAllPublicTechnicians
 };

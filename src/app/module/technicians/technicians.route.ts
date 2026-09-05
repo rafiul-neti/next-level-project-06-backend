@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { Role } from "../../../generated/prisma/enums";
+import { QuerySchema } from "../../../validations";
 import { auth } from "../../middleware/checkAuth";
 import validateQuery from "../../middleware/validateQuery";
 import { validateRequest } from "../../middleware/validateRequest";
@@ -32,6 +33,13 @@ router.get(
   auth(Role.ADMIN),
   validateQuery(getAllTechniciansQuerySchema),
   TechniciansController.getAlltechnicians,
+);
+
+// public routes
+router.get(
+  "/public",
+  validateQuery(QuerySchema),
+  TechniciansController.getAllPublicTechnicians,
 );
 
 export const TechniciansRoutes = router;

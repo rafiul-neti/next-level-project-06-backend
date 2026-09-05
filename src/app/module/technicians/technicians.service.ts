@@ -5,6 +5,7 @@ import {
   TechnicianApplicationStatus,
 } from "../../../generated/prisma/enums";
 import type { TechnicianProfileWhereInput } from "../../../generated/prisma/models";
+import type { TQuerySchema } from "../../../validations";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
@@ -180,6 +181,10 @@ async function getAllTechnicians(query: TGetAllTechniciansQuery) {
     });
   }
 
+  if (query.status) {
+    andConditions.push({ applicationStatus: query.status });
+  }
+
   const technicians = await prisma.technicianProfile.findMany({
     where: { AND: andConditions },
     take: limit,
@@ -193,7 +198,89 @@ async function getAllTechnicians(query: TGetAllTechniciansQuery) {
   });
 
   return {
-    data: technicians,
+    data: technicians.map((technician) => {
+      const { user, ...technicianInfo } = technician;
+
+      return {
+        technicianName: user.name,
+        technicianEmail: user.email,
+        ...technicianInfo,
+      };
+    }),
+    meta: {
+      page,
+      limit,
+      total: totalTechnicians,
+      totalPages: Math.ceil(totalTechnicians / limit),
+    },
+  };
+}
+
+// public routes
+async function getAllPublicTechnicians(query: TQuerySchema) {
+  const limit = query.limit ? query.limit : 10;
+  const page = query.page ? query.page : 1;
+  const skip = (page - 1) * limit;
+  const sortBy = query.sortBy ? query.sortBy : "createdAt";
+  const sortOrder = query.sortOrder ? query.sortOrder : "desc";
+
+  const andConditions: TechnicianProfileWhereInput[] = [
+    { applicationStatus: TechnicianApplicationStatus.APPROVED },
+  ];
+
+  if (query.searchTerm) {
+    andConditions.push({
+      OR: [
+        {
+          user: { name: { contains: query.searchTerm, mode: "insensitive" } },
+        },
+        {
+          user: { email: { contains: query.searchTerm, mode: "insensitive" } },
+        },
+      ],
+    });
+  }
+
+  const technicians = await prisma.technicianProfile.findMany({
+    where: { AND: andConditions },
+    take: limit,
+    skip,
+    orderBy: { [sortBy]: sortOrder },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      skills: true,
+      availability: true,
+    },
+  });
+
+  const totalTechnicians = await prisma.technicianProfile.count({
+    where: { AND: andConditions },
+  });
+
+  const techniciansList = await Promise.all(
+    technicians.map(async (technician) => {
+      const { user, ...technicianInfo } = technician;
+
+      const ratingResult = await prisma.feedback.aggregate({
+        where: {
+          serviceRequest: { technicianId: user.id },
+        },
+        _avg: { rating: true },
+        _count: { rating: true },
+      });
+
+      return {
+        technicianName: user.name,
+        technicianEmail: user.email,
+        averageRating: ratingResult._avg.rating,
+        totalReviews: ratingResult._count.rating,
+        ...technicianInfo,
+      };
+    }),
+  );
+
+  return {
+    data: techniciansList,
     meta: {
       page,
       limit,
@@ -207,4 +294,5 @@ export const TechniciansService = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
   getAllTechnicians,
+  getAllPublicTechnicians,
 };

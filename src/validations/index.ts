@@ -7,3 +7,5 @@ export const QuerySchema = z.object({
   sortBy: z.string().optional(),
   sortOrder: z.enum(["asc", "desc"]).optional(),
 });
+
+export type TQuerySchema = z.infer<typeof QuerySchema>;
