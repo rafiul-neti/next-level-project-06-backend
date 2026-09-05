@@ -7,6 +7,7 @@ import config from "./app/config";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { AuthRoutes } from "./app/module/auth/auth.route";
+import { CategoriesRoutes } from "./app/module/categories/categories.route";
 import { TechniciansRoutes } from "./app/module/technicians/technicians.route";
 import { UsersRoutes } from "./app/module/users/users.routes";
 
@@ -29,6 +30,7 @@ app.use(cookieParser());
 app.use("/api/v1/auth", AuthRoutes);
 app.use("/api/v1/users", UsersRoutes);
 app.use("/api/v1/technicians", TechniciansRoutes);
+app.use("/api/v1/categories", CategoriesRoutes);
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {
