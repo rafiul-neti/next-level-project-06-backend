@@ -6,6 +6,7 @@ import validateQuery from "../../middleware/validateQuery";
 import { validateRequest } from "../../middleware/validateRequest";
 import { TechniciansController } from "./technicians.controller";
 import {
+  addTechnicianSkillValidationSchema,
   applyAsTechnicianValidationSchema,
   getAllTechniciansQuerySchema,
   updateTechnicianApplicationStatusValidationSchema,
@@ -45,6 +46,14 @@ router.get(
 router.get(
   "/public/:technicianId",
   TechniciansController.getSinglePublicTechnicianDetails,
+);
+
+// technician only routes
+router.post(
+  "/me/skills",
+  auth(Role.TECHNICIAN),
+  validateRequest(addTechnicianSkillValidationSchema),
+  TechniciansController.addTechnicianSkill,
 );
 
 export const TechniciansRoutes = router;

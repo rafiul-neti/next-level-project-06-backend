@@ -13,7 +13,10 @@ import type {
   IApplyTechnicianPayload,
   IUpdateTechnicianApllicationStatusPayload,
 } from "./technicians.interface";
-import type { TGetAllTechniciansQuery } from "./technicians.validation";
+import type {
+  TAddTechnicianSkillPayload,
+  TGetAllTechniciansQuery,
+} from "./technicians.validation";
 
 async function applyAsTechnician(
   payload: IApplyTechnicianPayload,
@@ -349,10 +352,44 @@ async function getSinglePublicTechnicianDetails(technicianId: string) {
   };
 }
 
+// technician only routes services
+async function addTechnicianSkill(
+  payload: TAddTechnicianSkillPayload,
+  user: IRequestUser,
+) {
+  const isTechnicianExists = await prisma.technicianProfile.findUnique({
+    where: { userId: user.userId },
+  });
+
+  if (!isTechnicianExists || isTechnicianExists.isDeleted) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Profile Not Found!");
+  }
+
+  if (
+    isTechnicianExists.applicationStatus !==
+    TechnicianApplicationStatus.APPROVED
+  ) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      `You application is ${isTechnicianExists.applicationStatus}. Please ${isTechnicianExists.applicationStatus === TechnicianApplicationStatus.PENDING ? "wait your application to be APPROVED!" : "try again or contact support!"}`,
+    );
+  }
+
+  const addTechnicianSkill = await prisma.technicianSkill.create({
+    data: {
+      technicianProfileId: isTechnicianExists.id,
+      categoryId: payload.categoryId,
+    },
+  });
+
+  return addTechnicianSkill;
+}
+
 export const TechniciansService = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
   getAllTechnicians,
   getAllPublicTechnicians,
   getSinglePublicTechnicianDetails,
+  addTechnicianSkill,
 };

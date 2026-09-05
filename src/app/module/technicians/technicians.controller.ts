@@ -77,10 +77,25 @@ const getSinglePublicTechnicianDetails = catchAsync(
   },
 );
 
+// technician only controllers
+const addTechnicianSkill = catchAsync(async (req: Request, res: Response) => {
+  const result = await TechniciansService.addTechnicianSkill(
+    req.body,
+    req.user!,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: "Successfully Added New Skill.",
+    data: result,
+  });
+});
+
 export const TechniciansController = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
   getAlltechnicians,
   getAllPublicTechnicians,
   getSinglePublicTechnicianDetails,
+  addTechnicianSkill,
 };
