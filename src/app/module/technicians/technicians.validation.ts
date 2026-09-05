@@ -3,6 +3,7 @@ import {
   DayPeriod,
   TechnicianApplicationStatus,
 } from "../../../generated/prisma/enums";
+import { QuerySchema } from "../../../validations";
 
 export const availabilityInputValidationSchema = z.object({
   date: z.iso.date({ message: "Date must be a valid ISO date (YYYY-MM-DD)." }),
@@ -47,3 +48,10 @@ export const applyAsTechnicianValidationSchema = z.object({
 export const updateTechnicianApplicationStatusValidationSchema = z.object({
   decision: z.enum(TechnicianApplicationStatus),
 });
+
+export const getAllTechniciansQuerySchema = z.object({
+  ...QuerySchema.shape,
+});
+
+// types based on the zod schemas
+export type TGetAllTechniciansQuery = z.infer<typeof getAllTechniciansQuerySchema>;
