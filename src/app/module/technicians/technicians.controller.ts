@@ -63,8 +63,24 @@ const getAllPublicTechnicians = catchAsync(
   },
 );
 
+const getSinglePublicTechnicianDetails = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await TechniciansService.getSinglePublicTechnicianDetails(
+      req.params.technicianId as string,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Public Technician Details Retrieved Successfully.",
+      data: result,
+    });
+  },
+);
+
 export const TechniciansController = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
-  getAlltechnicians, getAllPublicTechnicians
+  getAlltechnicians,
+  getAllPublicTechnicians,
+  getSinglePublicTechnicianDetails,
 };

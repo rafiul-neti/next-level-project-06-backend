@@ -248,8 +248,15 @@ async function getAllPublicTechnicians(query: TQuerySchema) {
     orderBy: { [sortBy]: sortOrder },
     include: {
       user: { select: { id: true, name: true, email: true } },
-      skills: true,
-      availability: true,
+      skills: {
+        select: {
+          id: true,
+          category: { select: { name: true, description: true } },
+        },
+      },
+      availability: {
+        omit: { technicianProfileId: true, createdAt: true, updatedAt: true },
+      },
     },
   });
 
@@ -259,7 +266,7 @@ async function getAllPublicTechnicians(query: TQuerySchema) {
 
   const techniciansList = await Promise.all(
     technicians.map(async (technician) => {
-      const { user, ...technicianInfo } = technician;
+      const { user, skills, ...technicianInfo } = technician;
 
       const ratingResult = await prisma.feedback.aggregate({
         where: {
@@ -274,6 +281,11 @@ async function getAllPublicTechnicians(query: TQuerySchema) {
         technicianEmail: user.email,
         averageRating: ratingResult._avg.rating,
         totalReviews: ratingResult._count.rating,
+        skills: skills.map((skill) => ({
+          id: skill.id,
+          serviceCategory: skill.category.name,
+          description: skill.category.description,
+        })),
         ...technicianInfo,
       };
     }),
@@ -290,9 +302,57 @@ async function getAllPublicTechnicians(query: TQuerySchema) {
   };
 }
 
+async function getSinglePublicTechnicianDetails(technicianId: string) {
+  const technician = await prisma.technicianProfile.findUnique({
+    where: {
+      id: technicianId,
+      applicationStatus: TechnicianApplicationStatus.APPROVED,
+    },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      skills: {
+        include: {
+          category: {
+            select: { id: true, name: true, description: true },
+          },
+        },
+      },
+      availability: true,
+    },
+  });
+
+  if (!technician) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Not Found.");
+  }
+
+  const { user, skills, ...technicianInfo } = technician;
+
+  const ratingResult = await prisma.feedback.aggregate({
+    where: {
+      serviceRequest: { technicianId: user.id },
+    },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+
+  return {
+    technicianName: user.name,
+    technicianEmail: user.email,
+    averageRating: ratingResult._avg.rating,
+    totalReviews: ratingResult._count.rating,
+    skills: skills.map((skill) => ({
+      id: skill.id,
+      serviceCategory: skill.category.name,
+      description: skill.category.description,
+    })),
+    ...technicianInfo,
+  };
+}
+
 export const TechniciansService = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
   getAllTechnicians,
   getAllPublicTechnicians,
+  getSinglePublicTechnicianDetails,
 };

@@ -42,4 +42,9 @@ router.get(
   TechniciansController.getAllPublicTechnicians,
 );
 
+router.get(
+  "/public/:technicianId",
+  TechniciansController.getSinglePublicTechnicianDetails,
+);
+
 export const TechniciansRoutes = router;
