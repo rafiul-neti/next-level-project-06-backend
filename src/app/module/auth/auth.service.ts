@@ -86,7 +86,6 @@ const registerUser = async (
     name,
     email,
     password: hashedPassword,
-    role: payload.role,
     profileImage: uploadProfileImageAndGetLink?.secure_url,
     profileImagePublicId: uploadProfileImageAndGetLink?.public_id,
   };

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { Role } from "../../../../generated/prisma/enums";
 import { RedisKeyPrefix } from "../../../utils/redisActions";
 
 export const registerUserValidationSchema = z.object({
@@ -13,9 +12,6 @@ export const registerUserValidationSchema = z.object({
 
     .regex(/[0-9]/, "Password must contain atleast 1 Number")
     .regex(/[^A-Za-z0-9]/, "Password must contain atleast 1 Special Character"),
-  role: z.enum([Role.CUSTOMER, Role.TECHNICIAN], {
-    error: "User role must be one of CUSTOMER or TECHNICIAN!",
-  }),
 });
 
 export const loginValidationSchema = z.object({
