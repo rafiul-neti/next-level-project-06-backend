@@ -95,9 +95,7 @@ const addTechnicianSkill = catchAsync(async (req: Request, res: Response) => {
 
 const removeTechnicianSkill = catchAsync(
   async (req: Request, res: Response) => {
-    const parsed = addTechnicianSkillValidationSchema.safeParse(
-      req.params,
-    );
+    const parsed = addTechnicianSkillValidationSchema.safeParse(req.params);
 
     if (!parsed.success) {
       throw new AppError(httpStatus.BAD_REQUEST, "Invalid Category Reference!");
@@ -116,6 +114,16 @@ const removeTechnicianSkill = catchAsync(
   },
 );
 
+const getMySkills = catchAsync(async (req: Request, res: Response) => {
+  const result = await TechniciansService.getMySkills(req.user!);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: "Retrieved My Skills Sucessfully.",
+    data: result,
+  });
+});
+
 export const TechniciansController = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
@@ -124,4 +132,5 @@ export const TechniciansController = {
   getSinglePublicTechnicianDetails,
   addTechnicianSkill,
   removeTechnicianSkill,
+  getMySkills,
 };

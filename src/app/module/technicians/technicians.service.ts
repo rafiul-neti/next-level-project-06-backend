@@ -419,6 +419,35 @@ async function removeTechnicianSkill(categoryId: string, user: IRequestUser) {
   return removedSkill;
 }
 
+async function getMySkills(user: IRequestUser) {
+  const isTechnicianExists = await prisma.technicianProfile.findUnique({
+    where: { userId: user.userId },
+  });
+
+  if (!isTechnicianExists || isTechnicianExists.isDeleted) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Profile Not Found!");
+  }
+
+  if (
+    isTechnicianExists.applicationStatus !==
+    TechnicianApplicationStatus.APPROVED
+  ) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      `You application is ${isTechnicianExists.applicationStatus}. Please ${isTechnicianExists.applicationStatus === TechnicianApplicationStatus.PENDING ? "wait your application to be APPROVED!" : "try again or contact support!"}`,
+    );
+  }
+
+  const skills = await prisma.technicianSkill.findMany({
+    where: { technicianProfileId: isTechnicianExists.id },
+    include: {
+      category: { select: { id: true, name: true, description: true } },
+    },
+  });
+
+  return skills;
+}
+
 export const TechniciansService = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
@@ -427,4 +456,5 @@ export const TechniciansService = {
   getSinglePublicTechnicianDetails,
   addTechnicianSkill,
   removeTechnicianSkill,
+  getMySkills,
 };

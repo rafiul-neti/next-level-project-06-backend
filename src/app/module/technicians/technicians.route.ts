@@ -62,4 +62,10 @@ router.delete(
   TechniciansController.removeTechnicianSkill,
 );
 
+router.get(
+  "/me/skills",
+  auth(Role.TECHNICIAN),
+  TechniciansController.getMySkills,
+);
+
 export const TechniciansRoutes = router;
