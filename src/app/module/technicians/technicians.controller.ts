@@ -17,4 +17,23 @@ const applyAsTechnician = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-export const TechniciansController = { applyAsTechnician };
+const updateTechnicianApplicationStatus = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await TechniciansService.updateTechnicianApplicationStatus(
+      req.params.userId as string,
+      req.body,
+      req.user!.userId,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Application status updated successfully.",
+      data: result,
+    });
+  },
+);
+
+export const TechniciansController = {
+  applyAsTechnician,
+  updateTechnicianApplicationStatus,
+};

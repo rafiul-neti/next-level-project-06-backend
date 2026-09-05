@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { DayPeriod } from "../../../generated/prisma/enums";
+import {
+  DayPeriod,
+  TechnicianApplicationStatus,
+} from "../../../generated/prisma/enums";
 
 export const availabilityInputValidationSchema = z.object({
   date: z.iso.date({ message: "Date must be a valid ISO date (YYYY-MM-DD)." }),
@@ -39,4 +42,8 @@ export const applyAsTechnicianValidationSchema = z.object({
   availability: z
     .array(availabilityInputValidationSchema)
     .min(1, { message: "Provide at least one availability window." }),
+});
+
+export const updateTechnicianApplicationStatusValidationSchema = z.object({
+  decision: z.enum(TechnicianApplicationStatus),
 });

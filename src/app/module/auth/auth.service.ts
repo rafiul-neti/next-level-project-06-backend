@@ -623,7 +623,7 @@ const resetPassword = async (payload: TResetPasswordPayload) => {
   transporter.sendMail({
     from: config.email_sender,
     to: isUserExists.email,
-    subject: "PH-Healthcare - Forgot Password OTP",
+    subject: "Password Reset Successfull - FSM",
     html: resetPasswordEmailHTML,
   });
 
