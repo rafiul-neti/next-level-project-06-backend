@@ -56,4 +56,10 @@ router.post(
   TechniciansController.addTechnicianSkill,
 );
 
+router.delete(
+  "/me/skills/:categoryId",
+  auth(Role.TECHNICIAN),
+  TechniciansController.removeTechnicianSkill,
+);
+
 export const TechniciansRoutes = router;

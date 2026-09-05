@@ -375,14 +375,48 @@ async function addTechnicianSkill(
     );
   }
 
-  const addTechnicianSkill = await prisma.technicianSkill.create({
+  const { category, ...addedSkill } = await prisma.technicianSkill.create({
     data: {
       technicianProfileId: isTechnicianExists.id,
       categoryId: payload.categoryId,
     },
+    include: { category: { select: { name: true, description: true } } },
   });
 
-  return addTechnicianSkill;
+  return {
+    ...addedSkill,
+    serviceCategory: category.name,
+    description: category.description,
+  };
+}
+
+async function removeTechnicianSkill(categoryId: string, user: IRequestUser) {
+  const isTechnicianExists = await prisma.technicianProfile.findUnique({
+    where: { userId: user.userId },
+  });
+
+  if (!isTechnicianExists || isTechnicianExists.isDeleted) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Profile Not Found!");
+  }
+
+  const technicianSkill = await prisma.technicianSkill.findUnique({
+    where: {
+      technicianProfileId_categoryId: {
+        categoryId,
+        technicianProfileId: isTechnicianExists.id,
+      },
+    },
+  });
+
+  if (!technicianSkill) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Skill Not Found!");
+  }
+
+  const removedSkill = await prisma.technicianSkill.delete({
+    where: { id: technicianSkill.id },
+  });
+
+  return removedSkill;
 }
 
 export const TechniciansService = {
@@ -392,4 +426,5 @@ export const TechniciansService = {
   getAllPublicTechnicians,
   getSinglePublicTechnicianDetails,
   addTechnicianSkill,
+  removeTechnicianSkill,
 };

@@ -1,8 +1,10 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
+import { AppError } from "../../utils/AppError";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { TechniciansService } from "./technicians.service";
+import { addTechnicianSkillValidationSchema } from "./technicians.validation";
 
 const applyAsTechnician = catchAsync(async (req: Request, res: Response) => {
   const result = await TechniciansService.applyAsTechnician(
@@ -91,6 +93,29 @@ const addTechnicianSkill = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const removeTechnicianSkill = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = addTechnicianSkillValidationSchema.safeParse(
+      req.params,
+    );
+
+    if (!parsed.success) {
+      throw new AppError(httpStatus.BAD_REQUEST, "Invalid Category Reference!");
+    }
+
+    const result = await TechniciansService.removeTechnicianSkill(
+      parsed.data.categoryId,
+      req.user!,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Successfully Deleted Technician Skill.",
+      data: result,
+    });
+  },
+);
+
 export const TechniciansController = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
@@ -98,4 +123,5 @@ export const TechniciansController = {
   getAllPublicTechnicians,
   getSinglePublicTechnicianDetails,
   addTechnicianSkill,
+  removeTechnicianSkill,
 };
