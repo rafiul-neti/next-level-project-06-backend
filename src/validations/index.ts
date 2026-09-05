@@ -8,4 +8,8 @@ export const QuerySchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
 });
 
+export const idValidationSchema = z.object({
+  id: z.uuid(),
+});
+
 export type TQuerySchema = z.infer<typeof QuerySchema>;
