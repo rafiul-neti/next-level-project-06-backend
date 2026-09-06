@@ -1,0 +1,146 @@
+import httpStatus from "http-status";
+import config from "../config";
+import { AppError } from "../utils/AppError";
+import { Actions, RedisKeyPrefix, redisActions } from "../utils/redisActions";
+
+export const getBkashIdToken = async () => {
+  try {
+    const suffixForBkashIdToken = "idToken";
+    const suffixForBkashRefreshToken = "refreshToken";
+
+    let bkashIdToken = await redisActions({
+      keyPrefix: RedisKeyPrefix.BKASH,
+      keySuffix: suffixForBkashIdToken,
+      action: Actions.GET_OTP,
+    });
+
+    const bkashIdTokenTTL = await redisActions({
+      keyPrefix: RedisKeyPrefix.BKASH,
+      keySuffix: suffixForBkashIdToken,
+      action: Actions.TIME_TO_LEAVE,
+    });
+
+    const bkashRefreshToken = await redisActions({
+      keyPrefix: RedisKeyPrefix.BKASH,
+      keySuffix: suffixForBkashRefreshToken,
+      action: Actions.GET_OTP,
+    });
+
+    const bkashRefreshTokenTTL = await redisActions({
+      keyPrefix: RedisKeyPrefix.BKASH,
+      keySuffix: suffixForBkashRefreshToken,
+      action: Actions.TIME_TO_LEAVE,
+    });
+
+    /*console.log({
+      bkashIdToken,
+      bkashIdTokenTTL,
+      bkashRefreshToken,
+      bkashRefreshTokenTTL,
+    }); */
+
+    // bkash id_token's time to leave from redis is less than or equal 600 seconds or bkash id_token is expired,
+    // bkash refresh_token exists in redis,
+    // and refresh_token's time to leave from redis is more than 600 seconds
+    if (
+      ((bkashIdTokenTTL as number) <= 600 || !bkashIdToken) &&
+      bkashRefreshToken &&
+      (bkashRefreshTokenTTL as number) > 600
+    ) {
+      const refreshTokenResponse = await fetch(
+        `${config.bkash_sandbox_url}/tokenized/checkout/token/refresh`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            username: config.bkash_username,
+            password: config.bkash_password,
+          },
+          body: JSON.stringify({
+            app_key: config.bkash_app_key,
+            app_secret: config.bkash_app_secret,
+            refresh_token: bkashRefreshToken,
+          }),
+        },
+      );
+
+      if (!refreshTokenResponse.ok) {
+        throw new AppError(
+          httpStatus.BAD_GATEWAY,
+          "Failed to get a new id_token: using refresh_token!",
+        );
+      }
+
+      const refreshTokenResult = await refreshTokenResponse.json();
+
+      bkashIdToken = refreshTokenResult.id_token;
+
+      await redisActions({
+        keyPrefix: RedisKeyPrefix.BKASH,
+        keySuffix: suffixForBkashIdToken,
+        action: Actions.SET_OTP,
+        oneTimePass: bkashIdToken as string,
+        expirationSeconds: 60 * 60,
+      });
+
+      return bkashIdToken as string;
+    }
+
+    if (bkashIdToken) {
+      return bkashIdToken as string;
+    }
+
+    const response = await fetch(
+      `${config.bkash_sandbox_url}/tokenized/checkout/token/grant`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          username: config.bkash_username,
+          password: config.bkash_password,
+        },
+        body: JSON.stringify({
+          app_key: config.bkash_app_key,
+          app_secret: config.bkash_app_secret,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      throw new AppError(
+        httpStatus.BAD_GATEWAY,
+        "bKash Access Token Grant Failed!",
+      );
+    }
+
+    const result = await response.json();
+    bkashIdToken = result.id_token as string;
+
+    //   set bkash id_token to Redis
+    await redisActions({
+      keyPrefix: RedisKeyPrefix.BKASH,
+      keySuffix: suffixForBkashIdToken,
+      action: Actions.SET_OTP,
+      oneTimePass: result.id_token,
+      expirationSeconds: 60 * 60, // 1 hour
+    });
+
+    // set bkash refresh_token to Redis
+    await redisActions({
+      keyPrefix: RedisKeyPrefix.BKASH,
+      keySuffix: suffixForBkashRefreshToken,
+      action: Actions.SET_OTP,
+      oneTimePass: result.refresh_token,
+      expirationSeconds: 60 * 60 * 24 * 28, // 28 days
+    });
+
+    return bkashIdToken as string;
+  } catch (error: any) {
+    throw new AppError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      `${error.message}   -------->>>> Error from bkash getIdTokenMethod.`,
+    );
+  }
+};

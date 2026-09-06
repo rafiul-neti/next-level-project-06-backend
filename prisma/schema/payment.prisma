@@ -5,7 +5,7 @@ model Payment {
   amount Decimal?      @db.Decimal(10, 2)
 
   paymentGateway        String  @default("bkash")
-  merchantInvoiceNumber String? @unique // appointment_id
+  merchantInvoiceNumber String? @unique // serviceRequest_id
 
   bkashPaymentId String? @unique
   bkashTrxId     String?

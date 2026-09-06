@@ -7,7 +7,7 @@ export default {
   node_env: process.env.NODE_ENV,
   port: process.env.PORT,
   database_url: process.env.DATABASE_URL,
-  backend_url: process.env.BACKEND_URL,
+  bakend_app_url: process.env.BACKEND_URL,
   frontend_url: process.env.FRONTEND_URL,
   google_client_id: process.env.GOOGLE_CLIENT_ID!,
   bcrypt_salt_rounds: process.env.BCRYPT_SALT_ROUNDS!,
@@ -25,4 +25,9 @@ export default {
   cloudinary_cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
   cloudinary_api_key: process.env.CLOUDNINARY_API_KEY!,
   cloudinary_api_secret: process.env.CLOUDINARY_API_SECRET!,
+  bkash_sandbox_url: process.env.BKASH_SANDBOX_URL!,
+  bkash_username: process.env.BKASH_USERNAME!,
+  bkash_password: process.env.BKASH_PASSWORD!,
+  bkash_app_key: process.env.BKASH_APP_KEY!,
+  bkash_app_secret: process.env.BKASH_APP_SECRET!,
 };

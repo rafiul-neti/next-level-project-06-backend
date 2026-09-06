@@ -27,6 +27,7 @@ model ServiceRequest {
   completedAt         DateTime?
   completionNotes     String?
   completionPhotoUrls Json?  //strores [{url: "....", originalName: "...", publicId: "...."}]
+  finalAmount          Decimal?  @db.Decimal(10, 2)
   
   cancelledAt        DateTime?
   cancellationReason String?
