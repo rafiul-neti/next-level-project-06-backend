@@ -1,6 +1,5 @@
 import httpStatus from "http-status";
 import {
-  PaymentStatus,
   ServiceRequestStatus,
 } from "../../../generated/prisma/enums";
 import config from "../../config";

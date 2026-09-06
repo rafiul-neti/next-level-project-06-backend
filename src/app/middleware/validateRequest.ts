@@ -18,6 +18,10 @@ export const validateRequest = (schema: z.ZodObject) => {
       throw new AppError(
         httpStatus.BAD_REQUEST,
         result.error.issues[0].message,
+        result.error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+        })),
       );
     }
 
