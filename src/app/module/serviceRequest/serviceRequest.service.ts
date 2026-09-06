@@ -499,6 +499,59 @@ async function assignServiceRequest(
   });
 }
 
+async function startServiceRequest(
+  serviceRequestId: string,
+  technicianUserId: string,
+) {
+  return prisma.$transaction(async (tx) => {
+    const serviceRequest = await tx.serviceRequest.findUnique({
+      where: { id: serviceRequestId },
+    });
+
+    if (!serviceRequest) {
+      throw new AppError(httpStatus.NOT_FOUND, "Service request not found.");
+    }
+
+    if (serviceRequest.technicianId !== technicianUserId) {
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        "You are not the technician assigned to this service request.",
+      );
+    }
+
+    if (serviceRequest.status !== ServiceRequestStatus.ASSIGNED) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        `Only an ASSIGNED request can be started. Current status: ${serviceRequest.status}.`,
+      );
+    }
+
+    const updatedRequest = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        status: ServiceRequestStatus.IN_PROGRESS,
+        startedAt: new Date(),
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: technicianUserId,
+        action: AuditAction.STATUS_CHANGE,
+        entityType: "ServiceRequest",
+        entityId: serviceRequestId,
+        serviceRequestId,
+        metadata: {
+          from: ServiceRequestStatus.ASSIGNED,
+          to: ServiceRequestStatus.IN_PROGRESS,
+        },
+      },
+    });
+
+    return updatedRequest;
+  });
+}
+
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
@@ -507,5 +560,5 @@ export const ServiceRequestService = {
   getMyAssignedServiceRequests,
   getServiceRequestById,
   reviewServiceRequest,
-  assignServiceRequest,
+  assignServiceRequest, startServiceRequest
 };

@@ -32,6 +32,12 @@ router.get(
   ServiceRequestController.getMyAssignedServiceRequestsController,
 );
 
+router.patch(
+  "/:serviceRequestId/start",
+  auth(Role.TECHNICIAN),
+  ServiceRequestController.startServiceRequestController,
+);
+
 // admin only routes
 router.get(
   "/",
