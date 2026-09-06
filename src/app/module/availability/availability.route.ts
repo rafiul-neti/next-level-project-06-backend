@@ -16,4 +16,10 @@ router.post(
   AvailabilityController.setAvailability,
 );
 
+router.get(
+  "/me",
+  auth(Role.TECHNICIAN),
+  AvailabilityController.getAvailabilitySlots,
+);
+
 export const AvailabilityRoutes = router;

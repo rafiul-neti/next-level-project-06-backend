@@ -34,4 +34,35 @@ async function setAvailability(
   return createAvailabilitySlots;
 }
 
-export const AvailabilityService = { setAvailability };
+async function getAllAvailabilitySlotsByTechnicianProfileId(
+  user: IRequestUser,
+) {
+  const technicianProfile = await prisma.technicianProfile.findUnique({
+    where: { userId: user.userId },
+  });
+
+  if (!technicianProfile) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Profile Not Found.");
+  }
+
+  const allAvailabilitySlots = await prisma.technicianAvailability.findMany({
+    where: { technicianProfileId: technicianProfile.id },
+    include: {
+      technicianProfile: { select: { user: { select: { name: true } } } },
+    },
+  });
+
+  return allAvailabilitySlots.map((slot) => {
+    const { technicianProfile, ...restInfo } = slot;
+
+    return {
+      ...restInfo,
+      technicianName: technicianProfile.user.name,
+    };
+  });
+}
+
+export const AvailabilityService = {
+  setAvailability,
+  getAllAvailabilitySlotsByTechnicianProfileId,
+};
