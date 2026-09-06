@@ -73,12 +73,27 @@ const assignServiceRequestPayloadValidationSchema = z.object({
   availabilityId: z.uuid({ message: "availabilityId must be a valid UUID." }),
 });
 
+const completeServiceRequestPayloadValidationSchema = z.object({
+  completionNotes: z
+    .string()
+    .trim()
+    .min(10, { message: "completionNotes must be at least 10 characters." })
+    .max(2000, { message: "completionNotes must not exceed 2000 characters." }),
+  finalAmount: z.coerce
+    .number()
+    .positive({ message: "finalAmount must be greater than 0." })
+    .max(1000000, {
+      message: "finalAmount seems unrealistic — please check the value.",
+    }),
+});
+
 export const ServiceRequestValidation = {
   createServiceRequestPayloadValidationSchema,
   cancelServiceRequestPayloadValidationSchema,
   getAllServiceRequestsQueryValidationSchema,
   getMyAssignedServiceRequestsQueryValidationSchema,
   assignServiceRequestPayloadValidationSchema,
+  completeServiceRequestPayloadValidationSchema,
 };
 
 export type TServiceRequestPayload = z.infer<
@@ -99,4 +114,8 @@ export type TGetMyAssignedServiceRequestsQuery = z.infer<
 
 export type TAssignServiceRequestPayload = z.infer<
   typeof assignServiceRequestPayloadValidationSchema
+>;
+
+export type TCompleteServiceRequestPayload = z.infer<
+  typeof completeServiceRequestPayloadValidationSchema
 >;

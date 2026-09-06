@@ -19,6 +19,7 @@ import type { IRequestUser } from "../auth/auth.interface";
 import type {
   TAssignServiceRequestPayload,
   TCancelServiceRequestPayload,
+  TCompleteServiceRequestPayload,
   TGetAllServiceRequestsQuery,
   TGetMyAssignedServiceRequestsQuery,
   TServiceRequestPayload,
@@ -313,7 +314,10 @@ async function getMyAssignedServiceRequests(
   };
 }
 
-async function getServiceRequestById(serviceRequestId: string, actor: IRequestUser) {
+async function getServiceRequestById(
+  serviceRequestId: string,
+  actor: IRequestUser,
+) {
   const serviceRequest = await prisma.serviceRequest.findUnique({
     where: { id: serviceRequestId },
     include: {
@@ -552,6 +556,100 @@ async function startServiceRequest(
   });
 }
 
+async function completeServiceRequest(
+  serviceRequestId: string,
+  payload: TCompleteServiceRequestPayload,
+  completionPhotos: Express.Multer.File[],
+  user: IRequestUser,
+) {
+  const existingServiceRequest = await prisma.serviceRequest.findUnique({
+    where: { id: serviceRequestId },
+  });
+
+  if (!existingServiceRequest) {
+    throw new AppError(httpStatus.NOT_FOUND, "Service request not found.");
+  }
+
+  if (existingServiceRequest.technicianId !== user.userId) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not the technician assigned to this service request.",
+    );
+  }
+
+  if (existingServiceRequest.status !== ServiceRequestStatus.IN_PROGRESS) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      `Only an IN_PROGRESS request can be completed. Current status: ${existingServiceRequest.status}.`,
+    );
+  }
+
+  // Upload completion photos to Cloudinary BEFORE the transaction 
+  let uploadedCompletionPhotos: UploadApiResponse[] = [];
+
+  if (completionPhotos.length) {
+    uploadedCompletionPhotos = await Promise.all(
+      completionPhotos.map((file, indx) => {
+        return new Promise<UploadApiResponse>((resolve, reject) => {
+          cloudinary.uploader
+            .upload_stream({ resource_type: "auto" }, async (error, result) => {
+              if (error) {
+                return reject(error);
+              }
+
+              if (!result) {
+                return reject(
+                  new AppError(
+                    httpStatus.INTERNAL_SERVER_ERROR,
+                    `No result returned from Cloudinary: at completeServiceRequest in serviceRequest.service; uploading completion photo number ${indx + 1}, title: ${file.originalname}!`,
+                  ),
+                );
+              }
+
+              resolve(result);
+            })
+            .end(file.buffer);
+        });
+      }),
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updatedRequest = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        status: ServiceRequestStatus.COMPLETED,
+        completedAt: new Date(),
+        completionNotes: payload.completionNotes,
+        finalAmount: payload.finalAmount,
+        ...(uploadedCompletionPhotos.length && {
+          completionPhotoUrls: uploadedCompletionPhotos.map((file) => ({
+            url: file.secure_url,
+            publicId: file.public_id,
+          })),
+        }),
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId: user.userId,
+        action: AuditAction.STATUS_CHANGE,
+        entityType: "ServiceRequest",
+        entityId: serviceRequestId,
+        serviceRequestId,
+        metadata: {
+          from: ServiceRequestStatus.IN_PROGRESS,
+          to: ServiceRequestStatus.COMPLETED,
+          finalAmount: payload.finalAmount,
+        },
+      },
+    });
+
+    return updatedRequest;
+  });
+}
+
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
@@ -560,5 +658,7 @@ export const ServiceRequestService = {
   getMyAssignedServiceRequests,
   getServiceRequestById,
   reviewServiceRequest,
-  assignServiceRequest, startServiceRequest
+  assignServiceRequest,
+  startServiceRequest,
+  completeServiceRequest,
 };

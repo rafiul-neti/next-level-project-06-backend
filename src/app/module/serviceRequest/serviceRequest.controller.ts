@@ -196,6 +196,38 @@ const startServiceRequestController = catchAsync(
   },
 );
 
+const completeServiceRequest = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.serviceRequestId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid service request reference.",
+      );
+    }
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+    const completionPhotos = files?.["completionPhotos"] || [];
+
+    const result = await ServiceRequestService.completeServiceRequest(
+      parsed.data.id,
+      req.body,
+      completionPhotos,
+      req.user!,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Service request marked as completed.",
+      data: result,
+    });
+  },
+);
+
 export const ServiceRequestController = {
   createServiceRequest,
   getMyRequests,
@@ -206,4 +238,5 @@ export const ServiceRequestController = {
   reviewServiceRequestController,
   assignServiceRequestController,
   startServiceRequestController,
+  completeServiceRequest,
 };

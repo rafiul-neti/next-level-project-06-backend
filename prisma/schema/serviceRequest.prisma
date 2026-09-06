@@ -19,14 +19,14 @@ model ServiceRequest {
   title          String
   description    String
   address        String
-  attachmentUrls Json? //strores [{url: "....", originalName: "...", publicId: "...."}]
+  attachmentUrls Json? //strores [{url: "....", publicId: "...."}]
 
   status ServiceRequestStatus @default(PENDING)
 
   startedAt           DateTime?
   completedAt         DateTime?
   completionNotes     String?
-  completionPhotoUrls Json?  //strores [{url: "....", originalName: "...", publicId: "...."}]
+  completionPhotoUrls Json?  //strores [{url: "....", publicId: "...."}]
   finalAmount          Decimal?  @db.Decimal(10, 2)
   
   cancelledAt        DateTime?

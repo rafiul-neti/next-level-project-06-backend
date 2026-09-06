@@ -38,6 +38,16 @@ router.patch(
   ServiceRequestController.startServiceRequestController,
 );
 
+router.patch(
+  "/:serviceRequestId/complete",
+  auth(Role.TECHNICIAN),
+  upload.fields([{ name: "completionPhotos", maxCount: 5 }]),
+  validateRequest(
+    ServiceRequestValidation.completeServiceRequestPayloadValidationSchema,
+  ),
+  ServiceRequestController.completeServiceRequest,
+);
+
 // admin only routes
 router.get(
   "/",
