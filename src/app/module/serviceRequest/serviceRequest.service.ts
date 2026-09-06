@@ -3,6 +3,7 @@ import type { UploadApiResponse } from "cloudinary";
 import ejs from "ejs";
 import httpStatus from "http-status";
 import {
+  AuditAction,
   AvailabilityStatus,
   Role,
   ServiceRequestStatus,
@@ -338,7 +339,7 @@ async function getServiceRequestById(serviceRequestId: string, actor: IRequestUs
   const isAssignedTechnician =
     actor.role === Role.TECHNICIAN &&
     serviceRequest.technicianId === actor.userId;
-    
+
   const isAdmin = actor.role === Role.ADMIN;
 
   if (!isOwningCustomer && !isAssignedTechnician && !isAdmin) {
@@ -350,7 +351,46 @@ async function getServiceRequestById(serviceRequestId: string, actor: IRequestUs
 
   return serviceRequest;
 }
- 
+
+async function reviewServiceRequest(serviceRequestId: string, actorId: string) {
+  return prisma.$transaction(async (tx) => {
+    const serviceRequest = await tx.serviceRequest.findUnique({
+      where: { id: serviceRequestId },
+    });
+
+    if (!serviceRequest) {
+      throw new AppError(httpStatus.NOT_FOUND, "Service request not found.");
+    }
+
+    if (serviceRequest.status !== ServiceRequestStatus.PENDING) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        `Only a PENDING request can be reviewed. This request is currently ${serviceRequest.status}.`,
+      );
+    }
+
+    const updatedRequest = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: { status: ServiceRequestStatus.REVIEWED },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        action: AuditAction.STATUS_CHANGE,
+        entityType: "ServiceRequest",
+        entityId: serviceRequestId,
+        serviceRequestId,
+        metadata: {
+          from: ServiceRequestStatus.PENDING,
+          to: ServiceRequestStatus.REVIEWED,
+        },
+      },
+    });
+
+    return updatedRequest;
+  });
+}
 
 export const ServiceRequestService = {
   createServiceRequest,
@@ -359,4 +399,5 @@ export const ServiceRequestService = {
   getAllServiceRequests,
   getMyAssignedServiceRequests,
   getServiceRequestById,
+  reviewServiceRequest,
 };

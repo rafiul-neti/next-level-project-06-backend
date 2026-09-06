@@ -42,6 +42,12 @@ router.get(
   ServiceRequestController.getAllServiceRequests,
 );
 
+router.patch(
+  "/:serviceRequestId/review",
+  auth(Role.ADMIN),
+  ServiceRequestController.reviewServiceRequestController,
+);
+
 // multi-auth routes
 router.patch(
   "/:serviceRequestId/cancel",

@@ -117,6 +117,32 @@ const getServiceRequestByIdController = catchAsync(
   },
 );
 
+const reviewServiceRequestController = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.serviceRequestId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid service request reference.",
+      );
+    }
+
+    const result = await ServiceRequestService.reviewServiceRequest(
+      parsed.data.id,
+      req.user!.userId,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Service request marked as reviewed",
+      data: result,
+    });
+  },
+);
+
 export const ServiceRequestController = {
   createServiceRequest,
   getMyRequests,
@@ -124,4 +150,5 @@ export const ServiceRequestController = {
   getAllServiceRequests,
   getMyAssignedServiceRequestsController,
   getServiceRequestByIdController,
+  reviewServiceRequestController,
 };
