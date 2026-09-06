@@ -1,10 +1,12 @@
 import httpStatus from "http-status";
 import { AvailabilityStatus, Role } from "../../../generated/prisma/enums";
+import type { TechnicianAvailabilityWhereInput } from "../../../generated/prisma/models";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import type {
   TAvailabilityPayload,
+  TAvailabilityQuery,
   TBlockAvailabilityPayload,
 } from "./availability.validation";
 
@@ -170,10 +172,60 @@ async function getOpenAvailabilityForTechnician(technicianProfileId: string) {
   return openWindows;
 }
 
+async function getAllAvailability(query: TAvailabilityQuery) {
+  const { technicianProfileId, date, status, page, limit, sortBy, sortOrder } =
+    query;
+  const skip = (page - 1) * limit;
+
+  const andConditions: TechnicianAvailabilityWhereInput[] = [];
+
+  if (technicianProfileId) {
+    andConditions.push({ technicianProfileId });
+  }
+  if (date) {
+    andConditions.push({ date: new Date(date) });
+  }
+  if (status) {
+    andConditions.push({ status });
+  }
+
+  const whereClause: TechnicianAvailabilityWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
+
+  const [availabilitySlots, total] = await Promise.all([
+    prisma.technicianAvailability.findMany({
+      where: whereClause,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        technicianProfile: {
+          select: {
+            id: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+      },
+    }),
+    prisma.technicianAvailability.count({ where: whereClause }),
+  ]);
+
+  return {
+    data: availabilitySlots,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 export const AvailabilityService = {
   setAvailability,
   getAllAvailabilitySlotsByTechnicianProfileId,
   blockAnAvailability,
   deleteAvailabilitySlot,
   getOpenAvailabilityForTechnician,
+  getAllAvailability,
 };

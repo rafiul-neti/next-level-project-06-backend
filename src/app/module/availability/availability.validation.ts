@@ -21,9 +21,31 @@ const blockAvailabilityPayloadValidationSchema = z.object({
   }),
 });
 
+const getAllAvailabilityQueryValidationSchema = z.object({
+  technicianProfileId: z
+    .uuid({ message: "technicianProfileId must be a valid UUID." })
+    .optional(),
+  date: z.iso
+    .date({ message: "date must be a valid ISO date (YYYY-MM-DD)." })
+    .optional(),
+  status: z
+    .enum(AvailabilityStatus, {
+      message: "status must be one of OPEN, BOOKED, BLOCKED.",
+    })
+    .optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  sortBy: z
+    .enum(["date", "period", "status", "createdAt"])
+    .optional()
+    .default("date"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
+});
+
 export const AvailabilityValidation = {
   setAvailabilityPayloadValidationSchema,
   blockAvailabilityPayloadValidationSchema,
+  getAllAvailabilityQueryValidationSchema,
 };
 
 export type TAvailabilityPayload = z.infer<
@@ -32,4 +54,8 @@ export type TAvailabilityPayload = z.infer<
 
 export type TBlockAvailabilityPayload = z.infer<
   typeof blockAvailabilityPayloadValidationSchema
+>;
+
+export type TAvailabilityQuery = z.infer<
+  typeof getAllAvailabilityQueryValidationSchema
 >;

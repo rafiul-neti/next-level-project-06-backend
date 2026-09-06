@@ -106,10 +106,23 @@ const getOpenAvailabilityForTechnician = catchAsync(
   },
 );
 
+const getAllAvailability = catchAsync(async (req: Request, res: Response) => {
+  const result = await AvailabilityService.getAllAvailability(
+    req.validatedQuery,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: "Retrieved all availability slots successfully.",
+    data: result,
+  });
+});
+
 export const AvailabilityController = {
   setAvailability,
   getAvailabilitySlots,
   blockAnAvailability,
   deleteAvailabilitySlot,
   getOpenAvailabilityForTechnician,
+  getAllAvailability,
 };
