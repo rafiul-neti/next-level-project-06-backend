@@ -75,9 +75,26 @@ const getAllServiceRequests = catchAsync(
   },
 );
 
+const getMyAssignedServiceRequestsController = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await ServiceRequestService.getMyAssignedServiceRequests(
+      req.user!.userId,
+      req.validatedQuery
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Assigned service requests retrieved successfully",
+      data: result.data,
+      meta: result.meta,
+    });
+  },
+);
+
 export const ServiceRequestController = {
   createServiceRequest,
   getMyRequests,
   cancelServiceRequest,
   getAllServiceRequests,
+  getMyAssignedServiceRequestsController,
 };

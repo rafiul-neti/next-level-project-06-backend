@@ -22,6 +22,16 @@ router.post(
 
 router.get("/me", auth(Role.CUSTOMER), ServiceRequestController.getMyRequests);
 
+// technician only routes
+router.get(
+  "/assigned-to-me",
+  auth(Role.TECHNICIAN),
+  validateQuery(
+    ServiceRequestValidation.getMyAssignedServiceRequestsQueryValidationSchema,
+  ),
+  ServiceRequestController.getMyAssignedServiceRequestsController,
+);
+
 // admin only routes
 router.get(
   "/",
@@ -29,7 +39,7 @@ router.get(
   validateQuery(
     ServiceRequestValidation.getAllServiceRequestsQueryValidationSchema,
   ),
-  ServiceRequestController.getAllServiceRequests
+  ServiceRequestController.getAllServiceRequests,
 );
 
 // multi-auth routes

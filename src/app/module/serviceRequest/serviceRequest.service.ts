@@ -17,6 +17,7 @@ import type { IRequestUser } from "../auth/auth.interface";
 import type {
   TCancelServiceRequestPayload,
   TGetAllServiceRequestsQuery,
+  TGetMyAssignedServiceRequestsQuery,
   TServiceRequestPayload,
 } from "./serviceRequest.validation";
 
@@ -229,7 +230,7 @@ async function getAllServiceRequests(query: TGetAllServiceRequestsQuery) {
   if (technicianId) {
     andConditions.push({ technicianId });
   }
-  
+
   if (searchTerm) {
     andConditions.push({
       OR: [
@@ -268,9 +269,51 @@ async function getAllServiceRequests(query: TGetAllServiceRequestsQuery) {
   };
 }
 
+async function getMyAssignedServiceRequests(
+  technicianId: string,
+  query: TGetMyAssignedServiceRequestsQuery,
+) {
+  const { status, page, limit, sortBy, sortOrder } = query;
+  const skip = (page - 1) * limit;
+
+  const andConditions: ServiceRequestWhereInput[] = [{ technicianId }];
+
+  if (status) {
+    andConditions.push({ status });
+  }
+
+  const whereClause: ServiceRequestWhereInput = { AND: andConditions };
+
+  const [serviceRequests, total] = await Promise.all([
+    prisma.serviceRequest.findMany({
+      where: whereClause,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        customer: { select: { id: true, name: true, contactNumber: true } },
+        category: { select: { id: true, name: true } },
+        availability: { select: { date: true, period: true } },
+      },
+    }),
+    prisma.serviceRequest.count({ where: whereClause }),
+  ]);
+
+  return {
+    data: serviceRequests,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
   cancelServiceRequest,
   getAllServiceRequests,
+  getMyAssignedServiceRequests,
 };

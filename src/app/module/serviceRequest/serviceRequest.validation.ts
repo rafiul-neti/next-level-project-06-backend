@@ -57,10 +57,22 @@ const getAllServiceRequestsQueryValidationSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
+const getMyAssignedServiceRequestsQueryValidationSchema = z.object({
+  status: z.enum(ServiceRequestStatus).optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  sortBy: z
+    .enum(["createdAt", "updatedAt", "status"])
+    .optional()
+    .default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
 export const ServiceRequestValidation = {
   createServiceRequestPayloadValidationSchema,
   cancelServiceRequestPayloadValidationSchema,
   getAllServiceRequestsQueryValidationSchema,
+  getMyAssignedServiceRequestsQueryValidationSchema,
 };
 
 export type TServiceRequestPayload = z.infer<
@@ -73,4 +85,8 @@ export type TCancelServiceRequestPayload = z.infer<
 
 export type TGetAllServiceRequestsQuery = z.infer<
   typeof getAllServiceRequestsQueryValidationSchema
+>;
+
+export type TGetMyAssignedServiceRequestsQuery = z.infer<
+  typeof getMyAssignedServiceRequestsQueryValidationSchema
 >;
