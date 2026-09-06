@@ -2,7 +2,7 @@ import path from "node:path";
 import type { UploadApiResponse } from "cloudinary";
 import ejs from "ejs";
 import httpStatus from "http-status";
-import { Role } from "../../../generated/prisma/enums";
+import { Role, ServiceRequestStatus } from "../../../generated/prisma/enums";
 import config from "../../config";
 import { cloudinary } from "../../lib/cloudinary";
 import { transporter } from "../../lib/nodemailer";
@@ -122,4 +122,49 @@ async function getMyRequests(user: IRequestUser) {
   return myRequests;
 }
 
-export const ServiceRequestService = { createServiceRequest, getMyRequests };
+async function cancelServiceRequest(
+  serviceRequestId: string,
+  user: IRequestUser,
+) {
+  const cancellableStatuses: ServiceRequestStatus[] =
+    user.role === Role.ADMIN
+      ? [
+          ServiceRequestStatus.PENDING,
+          ServiceRequestStatus.REVIEWED,
+          ServiceRequestStatus.ASSIGNED,
+          ServiceRequestStatus.IN_PROGRESS,
+        ]
+      : [ServiceRequestStatus.PENDING, ServiceRequestStatus.REVIEWED];
+
+  const serviceRequest = await prisma.serviceRequest.findUnique({
+    where: { id: serviceRequestId },
+  });
+
+  if (!serviceRequest) {
+    throw new AppError(httpStatus.NOT_FOUND, "Service request not found!");
+  }
+
+  if (!cancellableStatuses.includes(serviceRequest.status)) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      `You cannot cancel a ${serviceRequest.status} service request!`,
+    );
+  }
+
+  /*
+  const cancelledService = await prisma.serviceRequest.update({
+    where: { id: serviceRequest.id },
+    data: {
+      cancelledAt: new Date(),
+      cancellationReason: "",
+      status: ServiceRequestStatus.CANCELLED,
+    },
+  });
+  */
+}
+
+export const ServiceRequestService = {
+  createServiceRequest,
+  getMyRequests,
+  cancelServiceRequest,
+};

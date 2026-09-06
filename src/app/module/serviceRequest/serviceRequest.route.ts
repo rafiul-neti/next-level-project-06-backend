@@ -21,4 +21,11 @@ router.post(
 
 router.get("/me", auth(Role.CUSTOMER), ServiceRequestController.getMyRequests);
 
+// multi-auth routes
+router.patch(
+  "/:serviceRequestId/cancel",
+  auth(Role.CUSTOMER, Role.ADMIN),
+  ServiceRequestController.cancelServiceRequest,
+);
+
 export const ServiceRequestRoutes = router;

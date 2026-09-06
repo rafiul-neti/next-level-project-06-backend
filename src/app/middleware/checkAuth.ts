@@ -3,6 +3,7 @@ import type { JwtPayload } from "jsonwebtoken";
 import type { Role } from "../../generated/prisma/enums";
 import config from "../config";
 import { prisma } from "../lib/prisma";
+import { AppError } from "../utils/AppError";
 import { catchAsync } from "../utils/catchAsync";
 import { jwtUtils } from "../utils/jwt";
 
@@ -59,7 +60,22 @@ export const auth = (...requiredRoles: Role[]) => {
     });
 
     if (!user) {
-      throw new Error("User not found. Please log in again.");
+      throw new AppError(404, "User not found. Please log in again.");
+    }
+
+    if (user.isDeleted) {
+      throw new AppError(404, "User is deleted from the platform.");
+    }
+
+    if (user.isBlocked) {
+      throw new AppError(404, "User is blocked. Please contact support.");
+    }
+
+    if (!user.isEmailVerified) {
+      throw new AppError(
+        400,
+        "Email is not verified. Please verify your email.",
+      );
     }
 
     req.user = {
