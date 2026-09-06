@@ -79,7 +79,7 @@ const getMyAssignedServiceRequestsController = catchAsync(
   async (req: Request, res: Response) => {
     const result = await ServiceRequestService.getMyAssignedServiceRequests(
       req.user!.userId,
-      req.validatedQuery
+      req.validatedQuery,
     );
 
     sendResponse(res, {
@@ -91,10 +91,37 @@ const getMyAssignedServiceRequestsController = catchAsync(
   },
 );
 
+const getServiceRequestByIdController = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.serviceRequestId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid service request reference.",
+      );
+    }
+
+    const result = await ServiceRequestService.getServiceRequestById(
+      parsed.data.id,
+      req.user!,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Service request retrieved successfully",
+      data: result,
+    });
+  },
+);
+
 export const ServiceRequestController = {
   createServiceRequest,
   getMyRequests,
   cancelServiceRequest,
   getAllServiceRequests,
   getMyAssignedServiceRequestsController,
+  getServiceRequestByIdController,
 };

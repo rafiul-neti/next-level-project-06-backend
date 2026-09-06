@@ -52,4 +52,10 @@ router.patch(
   ServiceRequestController.cancelServiceRequest,
 );
 
+router.get(
+  "/:serviceRequestId",
+  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ADMIN),
+  ServiceRequestController.getServiceRequestByIdController,
+);
+
 export const ServiceRequestRoutes = router;

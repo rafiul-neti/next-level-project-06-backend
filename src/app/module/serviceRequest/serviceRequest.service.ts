@@ -310,10 +310,53 @@ async function getMyAssignedServiceRequests(
   };
 }
 
+async function getServiceRequestById(serviceRequestId: string, actor: IRequestUser) {
+  const serviceRequest = await prisma.serviceRequest.findUnique({
+    where: { id: serviceRequestId },
+    include: {
+      category: true,
+      customer: {
+        select: { id: true, name: true, email: true, contactNumber: true },
+      },
+      technician: {
+        select: { id: true, name: true, email: true, contactNumber: true },
+      },
+      assignedBy: { select: { id: true, name: true } },
+      availability: true,
+      payment: true,
+      feedback: true,
+    },
+  });
+
+  if (!serviceRequest) {
+    throw new AppError(httpStatus.NOT_FOUND, "Service request not found.");
+  }
+
+  const isOwningCustomer =
+    actor.role === Role.CUSTOMER && serviceRequest.customerId === actor.userId;
+
+  const isAssignedTechnician =
+    actor.role === Role.TECHNICIAN &&
+    serviceRequest.technicianId === actor.userId;
+    
+  const isAdmin = actor.role === Role.ADMIN;
+
+  if (!isOwningCustomer && !isAssignedTechnician && !isAdmin) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not authorized to view this service request.",
+    );
+  }
+
+  return serviceRequest;
+}
+ 
+
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
   cancelServiceRequest,
   getAllServiceRequests,
   getMyAssignedServiceRequests,
+  getServiceRequestById,
 };
