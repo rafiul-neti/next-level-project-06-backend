@@ -114,4 +114,12 @@ async function createServiceRequest(
   return createdServiceRequest;
 }
 
-export const ServiceRequestService = { createServiceRequest };
+async function getMyRequests(user: IRequestUser) {
+  const myRequests = await prisma.serviceRequest.findMany({
+    where: { customerId: user.userId },
+  });
+
+  return myRequests;
+}
+
+export const ServiceRequestService = { createServiceRequest, getMyRequests };

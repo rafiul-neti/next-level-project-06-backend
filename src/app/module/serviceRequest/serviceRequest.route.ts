@@ -19,4 +19,6 @@ router.post(
   ServiceRequestController.createServiceRequest,
 );
 
+router.get("/me", auth(Role.CUSTOMER), ServiceRequestController.getMyRequests);
+
 export const ServiceRequestRoutes = router;

@@ -17,9 +17,20 @@ const createServiceRequest = catchAsync(async (req: Request, res: Response) => {
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
-    message: "Request received. You will be contacted by a Technician as soon as possible.",
+    message:
+      "Request received. You will be contacted by a Technician as soon as possible.",
     data: result,
   });
 });
 
-export const ServiceRequestController = { createServiceRequest };
+const getMyRequests = catchAsync(async (req: Request, res: Response) => {
+  const result = await ServiceRequestService.getMyRequests(req.user!);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: "Service requests retrieved successfully.",
+    data: result,
+  });
+});
+
+export const ServiceRequestController = { createServiceRequest, getMyRequests };
