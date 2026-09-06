@@ -67,9 +67,31 @@ const refundPaymentController = catchAsync(
   },
 );
 
+const getPaymentByIdController = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({ id: req.params.paymentId });
+
+    if (!parsed.success) {
+      throw new AppError(httpStatus.BAD_REQUEST, "Invalid Payment Reference.");
+    }
+
+    const result = await PaymentService.getPaymentById(
+      parsed.data.id,
+      req.user!,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Payment retrieved successfully.",
+      data: result,
+    });
+  },
+);
+
 export const PaymentController = {
   initiatePayment,
   reinitiatePaymentController,
   paymentCallbackController,
   refundPaymentController,
+  getPaymentByIdController,
 };

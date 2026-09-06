@@ -33,4 +33,11 @@ router.post(
   PaymentController.refundPaymentController,
 );
 
+// multi auth routes
+router.get(
+  "/:paymentId",
+  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ADMIN),
+  PaymentController.getPaymentByIdController,
+);
+
 export const PaymentRoutes = router;

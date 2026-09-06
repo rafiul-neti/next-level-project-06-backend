@@ -3,6 +3,7 @@ import PDFDocument from "pdfkit";
 import {
   AuditAction,
   PaymentStatus,
+  Role,
   ServiceRequestStatus,
 } from "../../../generated/prisma/enums";
 import config from "../../config";
@@ -11,7 +12,10 @@ import { transporter } from "../../lib/nodemailer";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
-import type { TInitiatePaymentPayload, TRefundPaymentPayload } from "./payment.validation";
+import type {
+  TInitiatePaymentPayload,
+  TRefundPaymentPayload,
+} from "./payment.validation";
 
 async function initiatePayment(
   payload: TInitiatePaymentPayload,
@@ -496,9 +500,53 @@ async function refundPayment(
   return updatedPayment;
 }
 
+async function getPaymentById(paymentId: string, actor: IRequestUser) {
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      service: {
+        select: {
+          id: true,
+          title: true,
+          address: true,
+          status: true,
+          customerId: true,
+          technicianId: true,
+          customer: { select: { id: true, name: true, email: true } },
+          technician: { select: { id: true, name: true, email: true } },
+          category: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (!payment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Payment not found.");
+  }
+
+  const isOwningCustomer =
+    actor.role === Role.CUSTOMER && payment.service.customerId === actor.userId;
+
+  const isAssignedTechnician =
+    actor.role === Role.TECHNICIAN &&
+    payment.service.technicianId === actor.userId;
+    
+  const isAdmin = actor.role === Role.ADMIN;
+
+  if (!isOwningCustomer && !isAssignedTechnician && !isAdmin) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not authorized to view this payment.",
+    );
+  }
+
+  return payment;
+}
+
 export const PaymentService = {
   initiatePayment,
   reinitiatePayment,
   paymentCallback,
   refundPayment,
+  getPaymentById,
 };
