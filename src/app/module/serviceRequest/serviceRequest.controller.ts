@@ -228,6 +228,33 @@ const completeServiceRequest = catchAsync(
   },
 );
 
+const createFeedbackController = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.serviceRequestId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid Service Request Reference.",
+      );
+    }
+
+    const result = await ServiceRequestService.createFeedback(
+      parsed.data.id,
+      req.user!.userId,
+      req.body,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Feedback Submitted Successfully.",
+      data: result,
+    });
+  },
+);
+
 export const ServiceRequestController = {
   createServiceRequest,
   getMyRequests,
@@ -239,4 +266,5 @@ export const ServiceRequestController = {
   assignServiceRequestController,
   startServiceRequestController,
   completeServiceRequest,
+  createFeedbackController,
 };

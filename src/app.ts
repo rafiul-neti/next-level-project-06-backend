@@ -9,6 +9,7 @@ import { notFound } from "./app/middleware/notFound";
 import { AuthRoutes } from "./app/module/auth/auth.route";
 import { AvailabilityRoutes } from "./app/module/availability/availability.route";
 import { CategoriesRoutes } from "./app/module/categories/categories.route";
+import { FeedbackRoutes } from "./app/module/feedback/feedback.route";
 import { PaymentRoutes } from "./app/module/payment/payment.route";
 import { ServiceRequestRoutes } from "./app/module/serviceRequest/serviceRequest.route";
 import { TechniciansRoutes } from "./app/module/technicians/technicians.route";
@@ -37,6 +38,7 @@ app.use("/api/v1/categories", CategoriesRoutes);
 app.use("/api/v1/payments", PaymentRoutes);
 app.use("/api/v1/service-requests", ServiceRequestRoutes);
 app.use("/api/v1/availability", AvailabilityRoutes);
+app.use("/api/v1/feedback", FeedbackRoutes);
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {

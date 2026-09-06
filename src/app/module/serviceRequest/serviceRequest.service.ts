@@ -20,6 +20,7 @@ import type {
   TAssignServiceRequestPayload,
   TCancelServiceRequestPayload,
   TCompleteServiceRequestPayload,
+  TCreateFeedbackPayload,
   TGetAllServiceRequestsQuery,
   TGetMyAssignedServiceRequestsQuery,
   TServiceRequestPayload,
@@ -584,7 +585,7 @@ async function completeServiceRequest(
     );
   }
 
-  // Upload completion photos to Cloudinary BEFORE the transaction 
+  // Upload completion photos to Cloudinary BEFORE the transaction
   let uploadedCompletionPhotos: UploadApiResponse[] = [];
 
   if (completionPhotos.length) {
@@ -650,6 +651,64 @@ async function completeServiceRequest(
   });
 }
 
+async function createFeedback(
+  serviceRequestId: string,
+  customerId: string,
+  payload: TCreateFeedbackPayload,
+) {
+  const FEEDBACK_ELIGIBLE_STATUSES: ServiceRequestStatus[] = [
+    ServiceRequestStatus.PAID,
+    ServiceRequestStatus.CLOSED,
+  ];
+
+  const serviceRequest = await prisma.serviceRequest.findUnique({
+    where: { id: serviceRequestId },
+    include: { feedback: true },
+  });
+
+  if (!serviceRequest) {
+    throw new AppError(httpStatus.NOT_FOUND, "Service request not found.");
+  }
+
+  if (serviceRequest.customerId !== customerId) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not authorized to leave feedback for this service request.",
+    );
+  }
+
+  if (!FEEDBACK_ELIGIBLE_STATUSES.includes(serviceRequest.status)) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      `Feedback can only be submitted for a PAID or CLOSED request. Current status: ${serviceRequest.status}.`,
+    );
+  }
+
+  if (serviceRequest.feedback) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "Feedback has already been submitted for this service request.",
+    );
+  }
+
+  const [feedback] = await prisma.$transaction([
+    prisma.feedback.create({
+      data: {
+        serviceRequestId,
+        customerId,
+        rating: payload.rating,
+        comment: payload.comment,
+      },
+    }),
+    prisma.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: { status: ServiceRequestStatus.CLOSED },
+    }),
+  ]);
+
+  return feedback;
+}
+
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
@@ -661,4 +720,5 @@ export const ServiceRequestService = {
   assignServiceRequest,
   startServiceRequest,
   completeServiceRequest,
+  createFeedback,
 };

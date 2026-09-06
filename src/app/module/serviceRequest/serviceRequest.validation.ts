@@ -87,6 +87,19 @@ const completeServiceRequestPayloadValidationSchema = z.object({
     }),
 });
 
+const createFeedbackPayloadValidationSchema = z.object({
+  rating: z
+    .number()
+    .int({ message: "rating must be a whole number." })
+    .min(1, { message: "rating must be at least 1." })
+    .max(5, { message: "rating must not exceed 5." }),
+  comment: z
+    .string()
+    .trim()
+    .max(1000, { message: "comment must not exceed 1000 characters." })
+    .optional(),
+});
+
 export const ServiceRequestValidation = {
   createServiceRequestPayloadValidationSchema,
   cancelServiceRequestPayloadValidationSchema,
@@ -94,6 +107,7 @@ export const ServiceRequestValidation = {
   getMyAssignedServiceRequestsQueryValidationSchema,
   assignServiceRequestPayloadValidationSchema,
   completeServiceRequestPayloadValidationSchema,
+  createFeedbackPayloadValidationSchema,
 };
 
 export type TServiceRequestPayload = z.infer<
@@ -118,4 +132,8 @@ export type TAssignServiceRequestPayload = z.infer<
 
 export type TCompleteServiceRequestPayload = z.infer<
   typeof completeServiceRequestPayloadValidationSchema
+>;
+
+export type TCreateFeedbackPayload = z.infer<
+  typeof createFeedbackPayloadValidationSchema
 >;

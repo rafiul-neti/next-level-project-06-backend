@@ -22,6 +22,15 @@ router.post(
 
 router.get("/me", auth(Role.CUSTOMER), ServiceRequestController.getMyRequests);
 
+router.post(
+  "/:serviceRequestId/feedback",
+  auth(Role.CUSTOMER),
+  validateRequest(
+    ServiceRequestValidation.createFeedbackPayloadValidationSchema,
+  ),
+  ServiceRequestController.createFeedbackController,
+);
+
 // technician only routes
 router.get(
   "/assigned-to-me",
