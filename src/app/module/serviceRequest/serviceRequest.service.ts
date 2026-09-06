@@ -7,6 +7,7 @@ import {
   AvailabilityStatus,
   Role,
   ServiceRequestStatus,
+  TechnicianApplicationStatus,
 } from "../../../generated/prisma/enums";
 import type { ServiceRequestWhereInput } from "../../../generated/prisma/models";
 import config from "../../config";
@@ -16,6 +17,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import type {
+  TAssignServiceRequestPayload,
   TCancelServiceRequestPayload,
   TGetAllServiceRequestsQuery,
   TGetMyAssignedServiceRequestsQuery,
@@ -392,6 +394,111 @@ async function reviewServiceRequest(serviceRequestId: string, actorId: string) {
   });
 }
 
+async function assignServiceRequest(
+  serviceRequestId: string,
+  payload: TAssignServiceRequestPayload,
+  actorId: string, // the admin performing the assignment
+) {
+  const { technicianId, availabilityId } = payload;
+
+  return prisma.$transaction(async (tx) => {
+    const serviceRequest = await tx.serviceRequest.findUnique({
+      where: { id: serviceRequestId },
+    });
+
+    if (!serviceRequest) {
+      throw new AppError(httpStatus.NOT_FOUND, "Service request not found.");
+    }
+
+    if (serviceRequest.status !== ServiceRequestStatus.REVIEWED) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        `Only a REVIEWED request can be assigned. Current status: ${serviceRequest.status}.`,
+      );
+    }
+
+    // technicianId is a User.id — resolve the TechnicianProfile from it,
+    // since availability rows and applicationStatus live on the profile.
+    const technicianProfile = await tx.technicianProfile.findUnique({
+      where: { userId: technicianId },
+    });
+
+    if (!technicianProfile) {
+      throw new AppError(httpStatus.NOT_FOUND, "Technician not found.");
+    }
+
+    if (
+      technicianProfile.applicationStatus !==
+      TechnicianApplicationStatus.APPROVED
+    ) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Only an approved technician can be assigned.",
+      );
+    }
+
+    const availability = await tx.technicianAvailability.findUnique({
+      where: { id: availabilityId },
+    });
+
+    if (!availability) {
+      throw new AppError(
+        httpStatus.NOT_FOUND,
+        "Availability window not found.",
+      );
+    }
+
+    if (availability.technicianProfileId !== technicianProfile.id) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "This availability window does not belong to the selected technician.",
+      );
+    }
+
+    if (availability.status !== AvailabilityStatus.OPEN) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        `This availability window is already ${availability.status}.`,
+      );
+    }
+
+    // Flip the slot to BOOKED — this, combined with the @@unique constraint
+    // on (technicianProfileId, date, period), is the double-booking guard.
+    await tx.technicianAvailability.update({
+      where: { id: availabilityId },
+      data: { status: AvailabilityStatus.BOOKED },
+    });
+
+    const updatedRequest = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        technicianId, // User.id of the technician
+        assignedById: actorId,
+        availabilityId,
+        status: ServiceRequestStatus.ASSIGNED,
+      },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        action: AuditAction.ASSIGNMENT,
+        entityType: "ServiceRequest",
+        entityId: serviceRequestId,
+        serviceRequestId,
+        metadata: {
+          from: ServiceRequestStatus.REVIEWED,
+          to: ServiceRequestStatus.ASSIGNED,
+          technicianId,
+          availabilityId,
+        },
+      },
+    });
+
+    return updatedRequest;
+  });
+}
+
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
@@ -400,4 +507,5 @@ export const ServiceRequestService = {
   getMyAssignedServiceRequests,
   getServiceRequestById,
   reviewServiceRequest,
+  assignServiceRequest,
 };

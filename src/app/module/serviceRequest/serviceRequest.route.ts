@@ -48,6 +48,15 @@ router.patch(
   ServiceRequestController.reviewServiceRequestController,
 );
 
+router.patch(
+  "/:serviceRequestId/assign",
+  auth(Role.ADMIN),
+  validateRequest(
+    ServiceRequestValidation.assignServiceRequestPayloadValidationSchema,
+  ),
+  ServiceRequestController.assignServiceRequestController,
+);
+
 // multi-auth routes
 router.patch(
   "/:serviceRequestId/cancel",

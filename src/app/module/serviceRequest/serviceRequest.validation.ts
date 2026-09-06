@@ -68,11 +68,17 @@ const getMyAssignedServiceRequestsQueryValidationSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
+const assignServiceRequestPayloadValidationSchema = z.object({
+  technicianId: z.uuid({ message: "technicianId must be a valid UUID." }),
+  availabilityId: z.uuid({ message: "availabilityId must be a valid UUID." }),
+});
+
 export const ServiceRequestValidation = {
   createServiceRequestPayloadValidationSchema,
   cancelServiceRequestPayloadValidationSchema,
   getAllServiceRequestsQueryValidationSchema,
   getMyAssignedServiceRequestsQueryValidationSchema,
+  assignServiceRequestPayloadValidationSchema,
 };
 
 export type TServiceRequestPayload = z.infer<
@@ -89,4 +95,8 @@ export type TGetAllServiceRequestsQuery = z.infer<
 
 export type TGetMyAssignedServiceRequestsQuery = z.infer<
   typeof getMyAssignedServiceRequestsQueryValidationSchema
+>;
+
+export type TAssignServiceRequestPayload = z.infer<
+  typeof assignServiceRequestPayloadValidationSchema
 >;

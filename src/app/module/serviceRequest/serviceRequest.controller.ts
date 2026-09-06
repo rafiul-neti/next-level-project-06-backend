@@ -143,6 +143,33 @@ const reviewServiceRequestController = catchAsync(
   },
 );
 
+const assignServiceRequestController = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.serviceRequestId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid service request reference.",
+      );
+    }
+
+    const result = await ServiceRequestService.assignServiceRequest(
+      parsed.data.id,
+      req.body,
+      req.user!.userId,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Technician assigned successfully",
+      data: result,
+    });
+  },
+);
+
 export const ServiceRequestController = {
   createServiceRequest,
   getMyRequests,
@@ -151,4 +178,5 @@ export const ServiceRequestController = {
   getMyAssignedServiceRequestsController,
   getServiceRequestByIdController,
   reviewServiceRequestController,
+  assignServiceRequestController,
 };
