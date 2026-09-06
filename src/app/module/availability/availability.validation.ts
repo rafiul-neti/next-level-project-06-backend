@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DayPeriod } from "../../../generated/prisma/enums";
+import { AvailabilityStatus, DayPeriod } from "../../../generated/prisma/enums";
 
 const setAvailabilityPayloadValidationSchema = z.object({
   date: z.iso
@@ -15,10 +15,21 @@ const setAvailabilityPayloadValidationSchema = z.object({
     }),
 });
 
+const blockAvailabilityPayloadValidationSchema = z.object({
+  status: z.literal(AvailabilityStatus.BLOCKED, {
+    error: `Status can only be  ${AvailabilityStatus.BLOCKED}`,
+  }),
+});
+
 export const AvailabilityValidation = {
   setAvailabilityPayloadValidationSchema,
+  blockAvailabilityPayloadValidationSchema,
 };
 
 export type TAvailabilityPayload = z.infer<
   typeof setAvailabilityPayloadValidationSchema
+>;
+
+export type TBlockAvailabilityPayload = z.infer<
+  typeof blockAvailabilityPayloadValidationSchema
 >;

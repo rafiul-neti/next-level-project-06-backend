@@ -16,6 +16,7 @@ export interface IRequestUser {
   email: string;
   name: string;
   role: Role;
+  technicianProfileId?: string;
 }
 
 export interface IVerifyEmailPayload {

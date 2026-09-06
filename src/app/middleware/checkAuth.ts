@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import type { JwtPayload } from "jsonwebtoken";
-import type { Role } from "../../generated/prisma/enums";
+import { Role } from "../../generated/prisma/enums";
 import config from "../config";
 import { prisma } from "../lib/prisma";
 import { AppError } from "../utils/AppError";
@@ -15,6 +15,7 @@ declare global {
         name: string;
         userId: string;
         role: Role;
+        technicianProfileId?: string;
       };
     }
   }
@@ -57,6 +58,7 @@ export const auth = (...requiredRoles: Role[]) => {
         name,
         role,
       },
+      include: { technicianProfile: { select: { id: true } } },
     });
 
     if (!user) {
@@ -83,6 +85,9 @@ export const auth = (...requiredRoles: Role[]) => {
       name,
       userId,
       role,
+      ...(role === Role.TECHNICIAN && {
+        technicianProfileId: user.technicianProfile?.id,
+      }),
     };
 
     next();

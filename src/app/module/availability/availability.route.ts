@@ -22,4 +22,13 @@ router.get(
   AvailabilityController.getAvailabilitySlots,
 );
 
+router.patch(
+  "/:availabilityId/block",
+  auth(Role.TECHNICIAN),
+  validateRequest(
+    AvailabilityValidation.blockAvailabilityPayloadValidationSchema,
+  ),
+  AvailabilityController.blockAnAvailability,
+);
+
 export const AvailabilityRoutes = router;
