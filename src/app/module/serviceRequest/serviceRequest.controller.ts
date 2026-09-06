@@ -50,6 +50,7 @@ const cancelServiceRequest = catchAsync(async (req: Request, res: Response) => {
   const result = await ServiceRequestService.cancelServiceRequest(
     parsed.data.id,
     req.user!,
+    req.body,
   );
 
   sendResponse(res, {
@@ -59,8 +60,24 @@ const cancelServiceRequest = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllServiceRequests = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await ServiceRequestService.getAllServiceRequests(
+      req.validatedQuery,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Service requests retrieved successfully",
+      data: result.data,
+      meta: result.meta,
+    });
+  },
+);
+
 export const ServiceRequestController = {
   createServiceRequest,
   getMyRequests,
   cancelServiceRequest,
+  getAllServiceRequests,
 };

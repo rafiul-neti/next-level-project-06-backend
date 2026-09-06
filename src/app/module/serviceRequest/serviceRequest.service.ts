@@ -2,14 +2,23 @@ import path from "node:path";
 import type { UploadApiResponse } from "cloudinary";
 import ejs from "ejs";
 import httpStatus from "http-status";
-import { Role, ServiceRequestStatus } from "../../../generated/prisma/enums";
+import {
+  AvailabilityStatus,
+  Role,
+  ServiceRequestStatus,
+} from "../../../generated/prisma/enums";
+import type { ServiceRequestWhereInput } from "../../../generated/prisma/models";
 import config from "../../config";
 import { cloudinary } from "../../lib/cloudinary";
 import { transporter } from "../../lib/nodemailer";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
-import type { TServiceRequestPayload } from "./serviceRequest.validation";
+import type {
+  TCancelServiceRequestPayload,
+  TGetAllServiceRequestsQuery,
+  TServiceRequestPayload,
+} from "./serviceRequest.validation";
 
 async function createServiceRequest(
   payload: TServiceRequestPayload,
@@ -124,10 +133,11 @@ async function getMyRequests(user: IRequestUser) {
 
 async function cancelServiceRequest(
   serviceRequestId: string,
-  user: IRequestUser,
+  actor: IRequestUser,
+  payload: TCancelServiceRequestPayload,
 ) {
   const cancellableStatuses: ServiceRequestStatus[] =
-    user.role === Role.ADMIN
+    actor.role === Role.ADMIN
       ? [
           ServiceRequestStatus.PENDING,
           ServiceRequestStatus.REVIEWED,
@@ -136,35 +146,131 @@ async function cancelServiceRequest(
         ]
       : [ServiceRequestStatus.PENDING, ServiceRequestStatus.REVIEWED];
 
-  const serviceRequest = await prisma.serviceRequest.findUnique({
-    where: { id: serviceRequestId },
+  return prisma.$transaction(async (tx) => {
+    const serviceRequest = await tx.serviceRequest.findUnique({
+      where: { id: serviceRequestId },
+    });
+
+    if (!serviceRequest) {
+      throw new AppError(httpStatus.NOT_FOUND, "Service request not found!");
+    }
+
+    if (actor.role === Role.CUSTOMER) {
+      if (serviceRequest.customerId !== actor.userId) {
+        throw new AppError(
+          httpStatus.FORBIDDEN,
+          "You can only cancel your own service requests.",
+        );
+      }
+      if (!cancellableStatuses.includes(serviceRequest.status)) {
+        throw new AppError(
+          httpStatus.CONFLICT,
+          "This request can no longer be cancelled — a technician has already been assigned.",
+        );
+      }
+    } else if (actor.role === Role.ADMIN) {
+      if (!cancellableStatuses.includes(serviceRequest.status)) {
+        throw new AppError(
+          httpStatus.CONFLICT,
+          `A request in ${serviceRequest.status} status can no longer be cancelled.`,
+        );
+      }
+    } else {
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        "You are not authorized to cancel this request.",
+      );
+    }
+
+    if (serviceRequest.availabilityId) {
+      await tx.technicianAvailability.update({
+        where: { id: serviceRequest.availabilityId },
+        data: { status: AvailabilityStatus.OPEN },
+      });
+    }
+
+    const cancelledRequest = await tx.serviceRequest.update({
+      where: { id: serviceRequestId },
+      data: {
+        status: ServiceRequestStatus.CANCELLED,
+        cancelledAt: new Date(),
+        cancellationReason: payload.cancellationReason,
+        availabilityId: null,
+      },
+    });
+
+    return cancelledRequest;
   });
+}
 
-  if (!serviceRequest) {
-    throw new AppError(httpStatus.NOT_FOUND, "Service request not found!");
+async function getAllServiceRequests(query: TGetAllServiceRequestsQuery) {
+  const {
+    status,
+    categoryId,
+    technicianId,
+    searchTerm,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+  } = query;
+  const skip = (page - 1) * limit;
+
+  const andConditions: ServiceRequestWhereInput[] = [];
+
+  if (status) {
+    andConditions.push({ status });
   }
 
-  if (!cancellableStatuses.includes(serviceRequest.status)) {
-    throw new AppError(
-      httpStatus.FORBIDDEN,
-      `You cannot cancel a ${serviceRequest.status} service request!`,
-    );
+  if (categoryId) {
+    andConditions.push({ categoryId });
   }
 
-  /*
-  const cancelledService = await prisma.serviceRequest.update({
-    where: { id: serviceRequest.id },
-    data: {
-      cancelledAt: new Date(),
-      cancellationReason: "",
-      status: ServiceRequestStatus.CANCELLED,
+  if (technicianId) {
+    andConditions.push({ technicianId });
+  }
+  
+  if (searchTerm) {
+    andConditions.push({
+      OR: [
+        { title: { contains: searchTerm, mode: "insensitive" } },
+        { address: { contains: searchTerm, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  const whereClause: ServiceRequestWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
+
+  const [serviceRequests, total] = await Promise.all([
+    prisma.serviceRequest.findMany({
+      where: whereClause,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        customer: { select: { id: true, name: true, email: true } },
+        technician: { select: { id: true, name: true, email: true } },
+        category: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.serviceRequest.count({ where: whereClause }),
+  ]);
+
+  return {
+    data: serviceRequests,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     },
-  });
-  */
+  };
 }
 
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
   cancelServiceRequest,
+  getAllServiceRequests,
 };

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ServiceRequestStatus } from "../../../generated/prisma/enums";
 
 export const attachmentValidationSchema = z.object({
   url: z.url({ message: "Attachment url must be a valid URL." }),
@@ -28,10 +29,48 @@ export const createServiceRequestPayloadValidationSchema = z.object({
     .optional(),
 });
 
+const cancelServiceRequestPayloadValidationSchema = z.object({
+  cancellationReason: z
+    .string()
+    .trim()
+    .min(10, { message: "cancellationReason must be at least 10 characters." })
+    .max(500, {
+      message: "cancellationReason must not exceed 500 characters.",
+    }),
+});
+
+const getAllServiceRequestsQueryValidationSchema = z.object({
+  status: z.enum(ServiceRequestStatus).optional(),
+  categoryId: z
+    .uuid({ message: "categoryId must be a valid UUID." })
+    .optional(),
+  technicianId: z
+    .uuid({ message: "technicianId must be a valid UUID." })
+    .optional(),
+  searchTerm: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  sortBy: z
+    .enum(["createdAt", "updatedAt", "status", "title"])
+    .optional()
+    .default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
 export const ServiceRequestValidation = {
   createServiceRequestPayloadValidationSchema,
+  cancelServiceRequestPayloadValidationSchema,
+  getAllServiceRequestsQueryValidationSchema,
 };
 
 export type TServiceRequestPayload = z.infer<
   typeof createServiceRequestPayloadValidationSchema
+>;
+
+export type TCancelServiceRequestPayload = z.infer<
+  typeof cancelServiceRequestPayloadValidationSchema
+>;
+
+export type TGetAllServiceRequestsQuery = z.infer<
+  typeof getAllServiceRequestsQueryValidationSchema
 >;

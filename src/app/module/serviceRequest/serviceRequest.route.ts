@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Role } from "../../../generated/prisma/enums";
 import { upload } from "../../lib/multer";
 import { auth } from "../../middleware/checkAuth";
+import validateQuery from "../../middleware/validateQuery";
 import { validateRequest } from "../../middleware/validateRequest";
 import { ServiceRequestController } from "./serviceRequest.controller";
 import { ServiceRequestValidation } from "./serviceRequest.validation";
@@ -21,10 +22,23 @@ router.post(
 
 router.get("/me", auth(Role.CUSTOMER), ServiceRequestController.getMyRequests);
 
+// admin only routes
+router.get(
+  "/",
+  auth(Role.ADMIN),
+  validateQuery(
+    ServiceRequestValidation.getAllServiceRequestsQueryValidationSchema,
+  ),
+  ServiceRequestController.getAllServiceRequests
+);
+
 // multi-auth routes
 router.patch(
   "/:serviceRequestId/cancel",
   auth(Role.CUSTOMER, Role.ADMIN),
+  validateRequest(
+    ServiceRequestValidation.cancelServiceRequestPayloadValidationSchema,
+  ),
   ServiceRequestController.cancelServiceRequest,
 );
 
