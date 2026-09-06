@@ -14,7 +14,14 @@ router.post(
   PaymentController.initiatePayment,
 );
 
+router.post(
+  "/re-initiate",
+  auth(Role.CUSTOMER),
+  validateRequest(PaymentValidation.validateInitiatePaymentPayloadSchema),
+  PaymentController.reinitiatePaymentController,
+);
+
 // payment callback route, bkash only
-// router.get("/callback");
+router.get("/callback", PaymentController.paymentCallbackController);
 
 export const PaymentRoutes = router;
