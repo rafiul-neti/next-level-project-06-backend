@@ -6,6 +6,7 @@ import {
   Role,
   ServiceRequestStatus,
 } from "../../../generated/prisma/enums";
+import type { PaymentWhereInput } from "../../../generated/prisma/models";
 import config from "../../config";
 import { getBkashIdToken } from "../../lib/bkash";
 import { transporter } from "../../lib/nodemailer";
@@ -13,6 +14,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import type {
+  TGetMyPaymentsQuery,
   TInitiatePaymentPayload,
   TRefundPaymentPayload,
 } from "./payment.validation";
@@ -530,7 +532,7 @@ async function getPaymentById(paymentId: string, actor: IRequestUser) {
   const isAssignedTechnician =
     actor.role === Role.TECHNICIAN &&
     payment.service.technicianId === actor.userId;
-    
+
   const isAdmin = actor.role === Role.ADMIN;
 
   if (!isOwningCustomer && !isAssignedTechnician && !isAdmin) {
@@ -543,10 +545,50 @@ async function getPaymentById(paymentId: string, actor: IRequestUser) {
   return payment;
 }
 
+async function getMyPayments(customerId: string, query: TGetMyPaymentsQuery) {
+  const { status, page, limit, sortBy, sortOrder } = query;
+  const skip = (page - 1) * limit;
+
+  const whereClause: PaymentWhereInput = {
+    service: { customerId },
+    ...(status && { status }),
+  };
+
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      where: whereClause,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        service: {
+          select: {
+            id: true,
+            title: true,
+            category: { select: { name: true } },
+          },
+        },
+      },
+    }),
+    prisma.payment.count({ where: whereClause }),
+  ]);
+
+  return {
+    data: payments,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 export const PaymentService = {
   initiatePayment,
   reinitiatePayment,
   paymentCallback,
   refundPayment,
   getPaymentById,
+  getMyPayments,
 };

@@ -88,10 +88,27 @@ const getPaymentByIdController = catchAsync(
   },
 );
 
+const getMyPaymentsController = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await PaymentService.getMyPayments(
+      req.user!.userId,
+      req.validatedQuery,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Payment history retrieved successfully.",
+      data: result.data,
+      meta: result.meta,
+    });
+  },
+);
+
 export const PaymentController = {
   initiatePayment,
   reinitiatePaymentController,
   paymentCallbackController,
   refundPaymentController,
   getPaymentByIdController,
+  getMyPaymentsController,
 };

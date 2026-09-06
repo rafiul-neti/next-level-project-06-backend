@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Role } from "../../../generated/prisma/enums";
 import { auth } from "../../middleware/checkAuth";
+import validateQuery from "../../middleware/validateQuery";
 import { validateRequest } from "../../middleware/validateRequest";
 import { PaymentController } from "./payment.controller";
 import { PaymentValidation } from "./payment.validation";
@@ -20,6 +21,13 @@ router.post(
   auth(Role.CUSTOMER),
   validateRequest(PaymentValidation.validateInitiatePaymentPayloadSchema),
   PaymentController.reinitiatePaymentController,
+);
+
+router.get(
+  "/me",
+  auth(Role.CUSTOMER),
+  validateQuery(PaymentValidation.getMyPaymentsQueryValidationSchema),
+  PaymentController.getMyPaymentsController,
 );
 
 // payment callback route, bkash only
