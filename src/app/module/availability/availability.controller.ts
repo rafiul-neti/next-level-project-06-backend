@@ -80,9 +80,36 @@ const deleteAvailabilitySlot = catchAsync(
   },
 );
 
+const getOpenAvailabilityForTechnician = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.technicianProfileId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid Availability Reference.",
+      );
+    }
+
+    const openWindows =
+      await AvailabilityService.getOpenAvailabilityForTechnician(
+        parsed.data.id,
+      );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Open availability retrieved successfully",
+      data: openWindows,
+    });
+  },
+);
+
 export const AvailabilityController = {
   setAvailability,
   getAvailabilitySlots,
   blockAnAvailability,
   deleteAvailabilitySlot,
+  getOpenAvailabilityForTechnician,
 };

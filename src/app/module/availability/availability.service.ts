@@ -145,9 +145,35 @@ async function deleteAvailabilitySlot(
   return deletedSlot;
 }
 
+async function getOpenAvailabilityForTechnician(technicianProfileId: string) {
+  const technicianProfile = await prisma.technicianProfile.findUnique({
+    where: { id: technicianProfileId },
+  });
+
+  if (!technicianProfile) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Profile Not Found.");
+  }
+
+  const openWindows = await prisma.technicianAvailability.findMany({
+    where: {
+      technicianProfileId: technicianProfile.id,
+      status: AvailabilityStatus.OPEN,
+    },
+    orderBy: [{ date: "asc" }, { period: "asc" }],
+    select: {
+      id: true,
+      date: true,
+      period: true,
+    },
+  });
+
+  return openWindows;
+}
+
 export const AvailabilityService = {
   setAvailability,
   getAllAvailabilitySlotsByTechnicianProfileId,
   blockAnAvailability,
   deleteAvailabilitySlot,
+  getOpenAvailabilityForTechnician,
 };

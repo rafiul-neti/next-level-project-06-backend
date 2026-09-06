@@ -12,6 +12,7 @@ declare global {
         name: string;
         userId: string;
         role: Role;
+        technicianProfileId?: string;
       };
     }
   }

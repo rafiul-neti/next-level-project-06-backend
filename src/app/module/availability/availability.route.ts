@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Role } from "../../../generated/prisma/enums";
 import { auth } from "../../middleware/checkAuth";
+import { optionalAuth } from "../../middleware/optionalAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { AvailabilityController } from "./availability.controller";
 import { AvailabilityValidation } from "./availability.validation";
@@ -35,6 +36,12 @@ router.delete(
   "/:availabilityId",
   auth(Role.TECHNICIAN),
   AvailabilityController.deleteAvailabilitySlot,
+);
+
+router.get(
+  "/technician/:technicianProfileId",
+  optionalAuth,
+  AvailabilityController.getOpenAvailabilityForTechnician,
 );
 
 export const AvailabilityRoutes = router;
