@@ -54,8 +54,35 @@ const blockAnAvailability = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteAvailabilitySlot = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.availabilityId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid Availability Reference.",
+      );
+    }
+
+    const result = await AvailabilityService.deleteAvailabilitySlot(
+      parsed.data.id,
+      req.user!,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "An availability deleted successfully.",
+      data: result,
+    });
+  },
+);
+
 export const AvailabilityController = {
   setAvailability,
   getAvailabilitySlots,
   blockAnAvailability,
+  deleteAvailabilitySlot,
 };

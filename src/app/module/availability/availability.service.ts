@@ -108,8 +108,46 @@ async function blockAnAvailability(
   return blockAvailability;
 }
 
+async function deleteAvailabilitySlot(
+  availabilityId: string,
+  user: IRequestUser,
+) {
+  const technicianProfile = await prisma.technicianProfile.findUnique({
+    where: { userId: user.userId, id: user.technicianProfileId },
+  });
+
+  if (!technicianProfile) {
+    throw new AppError(httpStatus.NOT_FOUND, "Technician Profile Not Found.");
+  }
+
+  const availability = await prisma.technicianAvailability.findFirst({
+    where: {
+      id: availabilityId,
+      technicianProfileId: technicianProfile.id,
+    },
+  });
+
+  if (!availability) {
+    throw new AppError(httpStatus.NOT_FOUND, "Availabolity Slot Not Found.");
+  }
+
+  if (availability.status !== AvailabilityStatus.OPEN) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      `Cannot delete a ${availability.status.toLowerCase()} slot. Only open slots can be removed.`,
+    );
+  }
+
+  const deletedSlot = prisma.technicianAvailability.delete({
+    where: { id: availability.id },
+  });
+
+  return deletedSlot;
+}
+
 export const AvailabilityService = {
   setAvailability,
   getAllAvailabilitySlotsByTechnicianProfileId,
   blockAnAvailability,
+  deleteAvailabilitySlot,
 };
