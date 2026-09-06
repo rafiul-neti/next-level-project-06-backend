@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
+import { idValidationSchema } from "../../../validations";
+import { AppError } from "../../utils/AppError";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { PaymentService } from "./payment.service";
@@ -43,8 +45,31 @@ const paymentCallbackController = catchAsync(
   },
 );
 
+const refundPaymentController = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({ id: req.params.paymentId });
+
+    if (!parsed.success) {
+      throw new AppError(httpStatus.BAD_REQUEST, "Invalid Payment Reference.");
+    }
+
+    const result = await PaymentService.refundPayment(
+      parsed.data.id,
+      req.body,
+      req.user!,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Payment refunded successfully.",
+      data: result,
+    });
+  },
+);
+
 export const PaymentController = {
   initiatePayment,
   reinitiatePaymentController,
   paymentCallbackController,
+  refundPaymentController,
 };

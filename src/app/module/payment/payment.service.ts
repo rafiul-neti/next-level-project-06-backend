@@ -1,6 +1,7 @@
 import httpStatus from "http-status";
 import PDFDocument from "pdfkit";
 import {
+  AuditAction,
   PaymentStatus,
   ServiceRequestStatus,
 } from "../../../generated/prisma/enums";
@@ -10,7 +11,7 @@ import { transporter } from "../../lib/nodemailer";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
-import type { TInitiatePaymentPayload } from "./payment.validation";
+import type { TInitiatePaymentPayload, TRefundPaymentPayload } from "./payment.validation";
 
 async function initiatePayment(
   payload: TInitiatePaymentPayload,
@@ -397,8 +398,107 @@ async function paymentCallback(query: Record<string, any>) {
   };
 }
 
+async function refundPayment(
+  paymentId: string,
+  payload: TRefundPaymentPayload,
+  actor: IRequestUser,
+) {
+  const reason = payload.refundReason ?? "Refunded by admin.";
+
+  const existingPayment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+  });
+
+  if (!existingPayment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Payment not found.");
+  }
+
+  if (existingPayment.status !== PaymentStatus.PAID) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Only a PAID payment can be refunded. Current status: ${existingPayment.status}.`,
+    );
+  }
+
+  if (!existingPayment.bkashPaymentId || !existingPayment.bkashTrxId) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "This payment is missing bKash transaction details and cannot be refunded automatically.",
+    );
+  }
+
+  const bkashIdToken = await getBkashIdToken();
+  if (!bkashIdToken) {
+    throw new AppError(
+      httpStatus.SERVICE_UNAVAILABLE,
+      "BKash Access Token not found!",
+    );
+  }
+
+  const bkashRefundPaymentResponse = await fetch(
+    `${config.bkash_sandbox_url}/tokenized/checkout/payment/refund`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: bkashIdToken,
+        "X-App-Key": config.bkash_app_key,
+      },
+      body: JSON.stringify({
+        paymentID: existingPayment.bkashPaymentId,
+        trxID: existingPayment.bkashTrxId,
+        amount: existingPayment.amount?.toString(),
+        sku: `${actor.email}:${existingPayment.serviceId}`,
+        reason,
+      }),
+    },
+  );
+
+  if (!bkashRefundPaymentResponse.ok) {
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      "Failed to execute bKash refund: in refundPayment at payment.service",
+    );
+  }
+
+  const bkashRefundPaymentResult = await bkashRefundPaymentResponse.json();
+
+  const [updatedPayment] = await prisma.$transaction([
+    prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        refundTrxId: bkashRefundPaymentResult.refundTrxID,
+        refundedAmount: bkashRefundPaymentResult.amount,
+        refundReason: reason,
+        refundedAt: bkashRefundPaymentResult.completedTime,
+        status: PaymentStatus.REFUNDED,
+        gatewayResponse: bkashRefundPaymentResult,
+      },
+    }),
+    prisma.auditLog.create({
+      data: {
+        actorId: actor.userId,
+        action: AuditAction.PAYMENT_UPDATE,
+        entityType: "Payment",
+        entityId: paymentId,
+        serviceRequestId: existingPayment.serviceId,
+        metadata: {
+          from: PaymentStatus.PAID,
+          to: PaymentStatus.REFUNDED,
+          refundTrxId: bkashRefundPaymentResult.refundTrxID,
+          refundedAmount: bkashRefundPaymentResult.amount,
+        },
+      },
+    }),
+  ]);
+
+  return updatedPayment;
+}
+
 export const PaymentService = {
   initiatePayment,
   reinitiatePayment,
   paymentCallback,
+  refundPayment,
 };
