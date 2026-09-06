@@ -14,6 +14,7 @@ import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type { IRequestUser } from "../auth/auth.interface";
 import type {
+  TGetAllPaymentsQuery,
   TGetMyPaymentsQuery,
   TInitiatePaymentPayload,
   TRefundPaymentPayload,
@@ -584,6 +585,46 @@ async function getMyPayments(customerId: string, query: TGetMyPaymentsQuery) {
   };
 }
 
+async function getAllPayments(query: TGetAllPaymentsQuery) {
+  const { status, page, limit, sortBy, sortOrder } = query;
+  const skip = (page - 1) * limit;
+
+  const whereClause: PaymentWhereInput = {
+    ...(status && { status }),
+  };
+
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      where: whereClause,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        service: {
+          select: {
+            id: true,
+            title: true,
+            customer: { select: { id: true, name: true, email: true } },
+            technician: { select: { id: true, name: true, email: true } },
+            category: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+    prisma.payment.count({ where: whereClause }),
+  ]);
+
+  return {
+    data: payments,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 export const PaymentService = {
   initiatePayment,
   reinitiatePayment,
@@ -591,4 +632,5 @@ export const PaymentService = {
   refundPayment,
   getPaymentById,
   getMyPayments,
+  getAllPayments,
 };

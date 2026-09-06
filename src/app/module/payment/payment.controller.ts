@@ -104,6 +104,19 @@ const getMyPaymentsController = catchAsync(
   },
 );
 
+const getAllPaymentsController = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await PaymentService.getAllPayments(req.validatedQuery);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Payments retrieved successfully.",
+      data: result.data,
+      meta: result.meta,
+    });
+  },
+);
+
 export const PaymentController = {
   initiatePayment,
   reinitiatePaymentController,
@@ -111,4 +124,5 @@ export const PaymentController = {
   refundPaymentController,
   getPaymentByIdController,
   getMyPaymentsController,
+  getAllPaymentsController,
 };

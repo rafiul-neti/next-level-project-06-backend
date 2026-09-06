@@ -41,6 +41,13 @@ router.post(
   PaymentController.refundPaymentController,
 );
 
+router.get(
+  "/",
+  auth(Role.ADMIN),
+  validateQuery(PaymentValidation.getAllPaymentsQueryValidationSchema),
+  PaymentController.getAllPaymentsController,
+);
+
 // multi auth routes
 router.get(
   "/:paymentId",
