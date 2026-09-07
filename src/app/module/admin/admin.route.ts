@@ -28,4 +28,11 @@ router.patch(
   AdminController.toggleUserBlock,
 );
 
+router.patch(
+  "/users/:userId/role",
+  auth(Role.ADMIN),
+  validateRequest(AdminValidation.changeUserRolePayloadValidationSchema),
+  AdminController.changeUserRole,
+);
+
 export const AdminRoutes = router;

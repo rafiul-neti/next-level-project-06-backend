@@ -9,6 +9,7 @@ import type { AuditLogWhereInput } from "../../../generated/prisma/models";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
 import type {
+  TChangeUserRolePayload,
   TGetAllAuditLogsQuery,
   TToggleUserBlockPayload,
 } from "./admin.validation";
@@ -173,8 +174,71 @@ async function toggleUserBlock(
   return updatedUser;
 }
 
+async function changeUserRole(
+  targetUserId: string,
+  payload: TChangeUserRolePayload,
+  actorId: string,
+) {
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+  });
+
+  if (!targetUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found.");
+  }
+
+  if (targetUser.id === actorId) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "You cannot change your own role.",
+    );
+  }
+
+  if (targetUser.isDeleted) {
+    throw new AppError(httpStatus.BAD_REQUEST, "User is deleted.");
+  }
+
+  if (targetUser.isBlocked) {
+    throw new AppError(httpStatus.BAD_REQUEST, "User is blocked.");
+  }
+
+  if (!targetUser.isEmailVerified) {
+    throw new AppError(httpStatus.BAD_REQUEST, "User email is unverified.");
+  }
+
+  if (targetUser.role === payload.role) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `User already has the role ${payload.role}.`,
+    );
+  }
+
+  const [updatedUser] = await prisma.$transaction([
+    prisma.user.update({
+      where: { id: targetUserId },
+      data: { role: payload.role },
+    }),
+    prisma.auditLog.create({
+      data: {
+        actorId,
+        action: AuditAction.ROLE_CHANGE,
+        entityType: "User",
+        entityId: targetUserId,
+        metadata: {
+          from: targetUser.role,
+          to: payload.role,
+          note: "Manual role override — bypassed the standard technician approval flow.",
+        },
+      },
+    }),
+  ]);
+
+  return updatedUser;
+}
+
 export const AdminService = {
   getDashboardStats,
   getAllAuditLogs,
   toggleUserBlock,
+  changeUserRole,
 };

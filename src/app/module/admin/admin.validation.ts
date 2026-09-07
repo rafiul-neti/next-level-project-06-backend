@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AuditAction } from "../../../generated/prisma/enums";
+import { AuditAction, Role } from "../../../generated/prisma/enums";
 
 const getAllAuditLogsQueryValidationSchema = z.object({
   action: z.enum(AuditAction).optional(),
@@ -19,9 +19,16 @@ const toggleUserBlockPayloadValidationSchema = z.object({
   }),
 });
 
+const changeUserRolePayloadValidationSchema = z.object({
+  role: z.enum(Role, {
+    message: "role must be one of CUSTOMER, TECHNICIAN, ADMIN.",
+  }),
+});
+
 export const AdminValidation = {
   getAllAuditLogsQueryValidationSchema,
   toggleUserBlockPayloadValidationSchema,
+  changeUserRolePayloadValidationSchema,
 };
 
 export type TGetAllAuditLogsQuery = z.infer<
@@ -30,4 +37,8 @@ export type TGetAllAuditLogsQuery = z.infer<
 
 export type TToggleUserBlockPayload = z.infer<
   typeof toggleUserBlockPayloadValidationSchema
+>;
+
+export type TChangeUserRolePayload = z.infer<
+  typeof changeUserRolePayloadValidationSchema
 >;

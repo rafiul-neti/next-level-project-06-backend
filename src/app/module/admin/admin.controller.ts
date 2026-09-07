@@ -49,8 +49,29 @@ const toggleUserBlock = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const changeUserRole = catchAsync(async (req: Request, res: Response) => {
+  const parsed = idValidationSchema.safeParse({ id: req.params.userId });
+
+  if (!parsed.success) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Invalid User Reference");
+  }
+
+  const result = await AdminService.changeUserRole(
+    parsed.data.id,
+    req.body,
+    req.user!.userId,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    message: "User role updated successfully.",
+    data: result,
+  });
+});
+
 export const AdminController = {
   getDashboardStats,
   getAllAuditLogs,
   toggleUserBlock,
+  changeUserRole,
 };
