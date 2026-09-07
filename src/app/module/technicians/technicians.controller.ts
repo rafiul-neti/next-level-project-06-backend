@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
+import { idValidationSchema } from "../../../validations";
 import { AppError } from "../../utils/AppError";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
@@ -124,6 +125,33 @@ const getMySkills = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getTechnicianFeedbackController = catchAsync(
+  async (req: Request, res: Response) => {
+    const parsed = idValidationSchema.safeParse({
+      id: req.params.technicianId,
+    });
+
+    if (!parsed.success) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Invalid Technician Reference.",
+      );
+    }
+
+    const result = await TechniciansService.getTechnicianFeedback(
+      parsed.data.id,
+      req.validatedQuery,
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      message: "Technician feedback retrieved successfully.",
+      data: result.data,
+      meta: result.meta,
+    });
+  },
+);
+
 export const TechniciansController = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
@@ -133,4 +161,5 @@ export const TechniciansController = {
   addTechnicianSkill,
   removeTechnicianSkill,
   getMySkills,
+  getTechnicianFeedbackController,
 };

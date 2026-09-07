@@ -58,6 +58,12 @@ export const addTechnicianSkillValidationSchema = z.object({
   categoryId: z.uuid({ error: "Invalid Category Reference!" }),
 });
 
+export const getTechnicianFeedbackQueryValidationSchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(10),
+  sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+});
+
 // types based on the zod schemas
 export type TGetAllTechniciansQuery = z.infer<
   typeof getAllTechniciansQuerySchema
@@ -65,4 +71,8 @@ export type TGetAllTechniciansQuery = z.infer<
 
 export type TAddTechnicianSkillPayload = z.infer<
   typeof addTechnicianSkillValidationSchema
+>;
+
+export type TGetTechnicianFeedbackQuery = z.infer<
+  typeof getTechnicianFeedbackQueryValidationSchema
 >;

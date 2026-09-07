@@ -16,6 +16,7 @@ import type {
 import type {
   TAddTechnicianSkillPayload,
   TGetAllTechniciansQuery,
+  TGetTechnicianFeedbackQuery,
 } from "./technicians.validation";
 
 async function applyAsTechnician(
@@ -448,6 +449,46 @@ async function getMySkills(user: IRequestUser) {
   return skills;
 }
 
+async function getTechnicianFeedback(
+  technicianId: string,
+  query: TGetTechnicianFeedbackQuery,
+) {
+  const { page, limit, sortOrder } = query;
+  const skip = (page - 1) * limit;
+
+  const whereClause = { serviceRequest: { technicianId } };
+
+  const [feedbackList, total] = await Promise.all([
+    prisma.feedback.findMany({
+      where: whereClause,
+      take: limit,
+      skip,
+      orderBy: { createdAt: sortOrder },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+        customer: { select: { name: true } },
+        serviceRequest: {
+          select: { title: true, category: { select: { name: true } } },
+        },
+      },
+    }),
+    prisma.feedback.count({ where: whereClause }),
+  ]);
+
+  return {
+    data: feedbackList,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
 export const TechniciansService = {
   applyAsTechnician,
   updateTechnicianApplicationStatus,
@@ -457,4 +498,5 @@ export const TechniciansService = {
   addTechnicianSkill,
   removeTechnicianSkill,
   getMySkills,
+  getTechnicianFeedback,
 };

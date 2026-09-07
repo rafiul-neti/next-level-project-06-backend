@@ -9,6 +9,7 @@ import {
   addTechnicianSkillValidationSchema,
   applyAsTechnicianValidationSchema,
   getAllTechniciansQuerySchema,
+  getTechnicianFeedbackQueryValidationSchema,
   updateTechnicianApplicationStatusValidationSchema,
 } from "./technicians.validation";
 
@@ -46,6 +47,12 @@ router.get(
 router.get(
   "/public/:technicianId",
   TechniciansController.getSinglePublicTechnicianDetails,
+);
+
+router.get(
+  "/:technicianId/feedback",
+  validateQuery(getTechnicianFeedbackQueryValidationSchema),
+  TechniciansController.getTechnicianFeedbackController,
 );
 
 // technician only routes
