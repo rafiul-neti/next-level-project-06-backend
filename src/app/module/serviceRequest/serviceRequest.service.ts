@@ -709,6 +709,50 @@ async function createFeedback(
   return feedback;
 }
 
+async function getFeedbackByServiceRequestId(
+  serviceRequestId: string,
+  actor: IRequestUser,
+) {
+  const serviceRequest = await prisma.serviceRequest.findUnique({
+    where: { id: serviceRequestId },
+    select: { customerId: true, technicianId: true },
+  });
+
+  if (!serviceRequest) {
+    throw new AppError(httpStatus.NOT_FOUND, "Service request not found.");
+  }
+
+  const isOwningCustomer =
+    actor.role === Role.CUSTOMER && serviceRequest.customerId === actor.userId;
+  const isAssignedTechnician =
+    actor.role === Role.TECHNICIAN &&
+    serviceRequest.technicianId === actor.userId;
+  const isAdmin = actor.role === Role.ADMIN;
+
+  if (!isOwningCustomer && !isAssignedTechnician && !isAdmin) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not authorized to view feedback for this service request.",
+    );
+  }
+
+  const feedback = await prisma.feedback.findUnique({
+    where: { serviceRequestId },
+    include: {
+      customer: { select: { id: true, name: true } },
+    },
+  });
+
+  if (!feedback) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "No feedback has been submitted for this service request yet.",
+    );
+  }
+
+  return feedback;
+}
+
 export const ServiceRequestService = {
   createServiceRequest,
   getMyRequests,
@@ -721,4 +765,5 @@ export const ServiceRequestService = {
   startServiceRequest,
   completeServiceRequest,
   createFeedback,
+  getFeedbackByServiceRequestId,
 };

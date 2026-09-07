@@ -98,4 +98,10 @@ router.get(
   ServiceRequestController.getServiceRequestByIdController,
 );
 
+router.get(
+  "/:serviceRequestId/feedback",
+  auth(Role.CUSTOMER, Role.TECHNICIAN, Role.ADMIN),
+  ServiceRequestController.getFeedbackByServiceRequestIdController,
+);
+
 export const ServiceRequestRoutes = router;
