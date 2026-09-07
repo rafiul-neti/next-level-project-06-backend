@@ -3,7 +3,9 @@ import {
   ServiceRequestStatus,
   TechnicianApplicationStatus,
 } from "../../../generated/prisma/enums";
+import { AuditLogWhereInput } from "../../../generated/prisma/models";
 import { prisma } from "../../lib/prisma";
+import type { TGetAllAuditLogsQuery } from "./admin.validation";
 
 const ALL_SERVICE_REQUEST_STATUSES = Object.values(ServiceRequestStatus);
 const ALL_APPLICATION_STATUSES = Object.values(TechnicianApplicationStatus);
@@ -59,4 +61,58 @@ async function getDashboardStats() {
   };
 }
 
-export const AdminService = { getDashboardStats };
+async function getAllAuditLogs(query: TGetAllAuditLogsQuery) {
+  const {
+    action,
+    entityType,
+    actorId,
+    serviceRequestId,
+    page,
+    limit,
+    sortOrder,
+  } = query;
+  const skip = (page - 1) * limit;
+
+  const andConditions: AuditLogWhereInput[] = [];
+
+  if (action) {
+    andConditions.push({ action });
+  }
+  if (entityType) {
+    andConditions.push({ entityType });
+  }
+  if (actorId) {
+    andConditions.push({ actorId });
+  }
+  if (serviceRequestId) {
+    andConditions.push({ serviceRequestId });
+  }
+
+  const whereClause: AuditLogWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
+
+  const [auditLogs, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where: whereClause,
+      take: limit,
+      skip,
+      orderBy: { createdAt: sortOrder },
+      include: {
+        actor: { select: { id: true, name: true, email: true, role: true } },
+      },
+    }),
+    prisma.auditLog.count({ where: whereClause }),
+  ]);
+
+  return {
+    data: auditLogs,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}
+
+export const AdminService = { getDashboardStats, getAllAuditLogs };
