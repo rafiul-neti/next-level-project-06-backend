@@ -13,8 +13,21 @@ const getAllAuditLogsQueryValidationSchema = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
 });
 
-export const AdminValidation = { getAllAuditLogsQueryValidationSchema };
+const toggleUserBlockPayloadValidationSchema = z.object({
+  status: z.enum(["BLOCK", "UNBLOCK"], {
+    error: "Block status must be one of 'BLOCK' or 'UNBLOCK'!",
+  }),
+});
+
+export const AdminValidation = {
+  getAllAuditLogsQueryValidationSchema,
+  toggleUserBlockPayloadValidationSchema,
+};
 
 export type TGetAllAuditLogsQuery = z.infer<
   typeof getAllAuditLogsQueryValidationSchema
+>;
+
+export type TToggleUserBlockPayload = z.infer<
+  typeof toggleUserBlockPayloadValidationSchema
 >;

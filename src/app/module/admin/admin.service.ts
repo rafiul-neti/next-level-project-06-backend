@@ -1,11 +1,17 @@
+import httpStatus from "http-status";
 import {
+  AuditAction,
   PaymentStatus,
   ServiceRequestStatus,
   TechnicianApplicationStatus,
 } from "../../../generated/prisma/enums";
-import { AuditLogWhereInput } from "../../../generated/prisma/models";
+import type { AuditLogWhereInput } from "../../../generated/prisma/models";
 import { prisma } from "../../lib/prisma";
-import type { TGetAllAuditLogsQuery } from "./admin.validation";
+import { AppError } from "../../utils/AppError";
+import type {
+  TGetAllAuditLogsQuery,
+  TToggleUserBlockPayload,
+} from "./admin.validation";
 
 const ALL_SERVICE_REQUEST_STATUSES = Object.values(ServiceRequestStatus);
 const ALL_APPLICATION_STATUSES = Object.values(TechnicianApplicationStatus);
@@ -115,4 +121,60 @@ async function getAllAuditLogs(query: TGetAllAuditLogsQuery) {
   };
 }
 
-export const AdminService = { getDashboardStats, getAllAuditLogs };
+async function toggleUserBlock(
+  targetUserId: string,
+  payload: TToggleUserBlockPayload,
+  actorId: string,
+) {
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+  });
+
+  if (!targetUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found.");
+  }
+
+  if (targetUser.id === actorId) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "You cannot block your own account.",
+    );
+  }
+
+  const newBlockedState = payload.status === "BLOCK";
+
+  if (targetUser.isBlocked === newBlockedState) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      `User is already ${targetUser.isBlocked ? "Blocked" : "Unblocked"}.`,
+    );
+  }
+
+  const [updatedUser] = await prisma.$transaction([
+    prisma.user.update({
+      where: { id: targetUserId },
+      data: { isBlocked: newBlockedState },
+    }),
+    prisma.auditLog.create({
+      data: {
+        actorId,
+        action: AuditAction.ACCOUNT_ACTION,
+        entityType: "User",
+        entityId: targetUserId,
+        metadata: {
+          from: targetUser.isBlocked,
+          to: newBlockedState,
+          action: newBlockedState ? "BLOCKED" : "UNBLOCKED",
+        },
+      },
+    }),
+  ]);
+
+  return updatedUser;
+}
+
+export const AdminService = {
+  getDashboardStats,
+  getAllAuditLogs,
+  toggleUserBlock,
+};
